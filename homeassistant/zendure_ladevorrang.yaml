@@ -3,6 +3,8 @@
 # Anlage:  Zendure SolarFlow 2400 Pro, 1x AB2000 (2,4 kWh)
 # Paket:   "Zendure zenSDK (Gielz)" - automation.zendure_zensdk_gielz_global
 # Stand:   Entwurf, in Home Assistant noch NICHT angelegt.
+# Format:  Einzelnes Mapping, gedacht fuer die Config-API. Wer es stattdessen
+#          in automations.yaml uebernimmt, muss es als Listeneintrag einruecken.
 #
 # Problem, das geloest wird:
 #   Der Speicher pendelte an der Entladegrenze im 20-Minuten-Takt zwischen
@@ -33,9 +35,13 @@ alias: Zendure Ladevorrang (Hysterese 40 % / 18 %)
 description: >-
   Ladevorrang mit Hysterese fuer den Zendure-Speicher. Faellt der Ladestand
   auf 18 %, wird von "Smart Matching" auf "Smart Charge Only" umgeschaltet:
-  die Entladung ist gesperrt, der Akku laedt nur noch aus PV-Ueberschuss.
-  Ab 40 % wird auf "Smart Matching" zurueckgeschaltet und der Speicher
-  versorgt wieder das Haus, bis er erneut bei 18 % steht.
+  die Entladung ist gesperrt, der Akku laedt aus PV-Ueberschuss. Ab 40 %
+  wird auf "Smart Matching" zurueckgeschaltet und der Speicher versorgt
+  wieder das Haus, bis er erneut bei 18 % steht.
+
+  Faellt der SOC unter die Mindest-SOC von 18 %, laedt das Paket
+  modusunabhaengig mit 1200 W aus dem Netz nach. Das ist Verhalten des
+  Pakets, nicht dieser Automation, und bleibt bewusst unangetastet.
 
   Der Zustand des Automaten liegt ausschliesslich im input_select - es gibt
   bewusst keinen Merker-Helper und keinen Hauptschalter, die Regelung laeuft
@@ -52,15 +58,17 @@ description: >-
   wer oberhalb 40 % von Hand "Smart Charge Only" waehlt, wird auf "Smart
   Matching" zurueckgesetzt.
 
-  Nicht abgedeckt: "Dynamic Smart Matching", "Dynamic Trading + Smart
-  Matching" und "Smart Discharge Only" entladen laut Paket-Code ebenfalls -
-  dort wirkt die Hysterese nicht.
+  Nicht abgedeckt: Die Hysterese wirkt ausschliesslich zwischen "Smart
+  Matching" und "Smart Charge Only". In allen uebrigen Modi - unter anderem
+  Manual, Quick Discharge, Smart Discharge Only, Dynamic Smart Matching und
+  Dynamic Trading + Smart Matching - haelt die Automation still, dort greift
+  bei 18 % kein Schutz durch diese Automation.
 
 mode: single
 max_exceeded: silent
 
 trace:
-  stored_traces: 30
+  stored_traces: 256
 
 triggers:
   - trigger: numeric_state
@@ -99,8 +107,9 @@ triggers:
     note: >-
       Netz gegen verpasste Flanken (Sensor unavailable, Reload, HA waehrend
       des Uebergangs aus). Rund 144 Leerlaeufe pro Tag, rechnerisch
-      vernachlaessigbar; stored_traces ist erhoeht, damit die echten
-      Umschaltungen nicht aus dem Trace-Ringpuffer gedraengt werden.
+      vernachlaessigbar. stored_traces steht auf 256 und deckt damit rund
+      1,7 Tage ab, sodass die echten Umschaltungen zwischen den Leerlaeufen
+      im Trace-Ringpuffer auffindbar bleiben.
 
 actions:
   - choose:
