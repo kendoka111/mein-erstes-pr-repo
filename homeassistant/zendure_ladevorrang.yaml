@@ -1,0 +1,151 @@
+# Zendure Ladevorrang mit Hysterese
+#
+# Anlage:  Zendure SolarFlow 2400 Pro, 1x AB2000 (2,4 kWh)
+# Paket:   "Zendure zenSDK (Gielz)" - automation.zendure_zensdk_gielz_global
+# Stand:   Entwurf, in Home Assistant noch NICHT angelegt.
+#
+# Problem, das geloest wird:
+#   Der Speicher pendelte an der Entladegrenze im 20-Minuten-Takt zwischen
+#   18 % und 19 % - am 28.08. 74 Wechsel des charging_mode zwischen 13:00
+#   und 19:17. Jeder dieser Mini-Zyklen laeuft mit rund 78 % Wirkungsgrad
+#   (88,07 % rein x 88,72 % raus), verliert also ein Fuenftel der Energie,
+#   und kostet Relais-Schaltspiele.
+#
+# Warum ueber den Betriebsmodus und NICHT ueber die Mindest-SOC:
+#   Der Paket-Zweig "Charging to minimum SOC (protection)" laedt bei
+#   SOC < Mindest-SOC mit 1200 W - und zwar AC-seitig aus dem Netz. Am
+#   28.08. um 02:51 nachweisbar: PV-Leistung 0,0 W, power_import_dc
+#   ~1124 W, charging_mode "Charging", SOC 17 -> 18. Die begrenzende
+#   Sonnen-Bedingung steht im Paket auf enabled: false, der Schutz greift
+#   also auch nachts. Wuerde man die Mindest-SOC auf 40 % hochsetzen,
+#   laedt der Speicher aus dem Netz auf 40 % hoch. Deshalb bleibt sie
+#   unangetastet; gesteuert wird ausschliesslich der Betriebsmodus.
+#
+# Verifiziert am Paket-Code (alle 39 choose-Zweige ausgewertet):
+#   "Smart Charge Only" kommt in KEINEM Entladezweig vor
+#   ("Start discharging at +xxx watt", "During discharge balance"),
+#   aber in beiden Ladezweigen. Das Paket schreibt den Betriebsmodus
+#   nie selbst (0 input_select.select_option-Aktionen), es gibt also
+#   keine Kollision.
+
+id: zendure_ladevorrang_hysterese
+alias: Zendure Ladevorrang (Hysterese 40 % / 18 %)
+description: >-
+  Ladevorrang mit Hysterese fuer den Zendure-Speicher. Faellt der Ladestand
+  auf 18 %, wird von "Smart Matching" auf "Smart Charge Only" umgeschaltet:
+  die Entladung ist gesperrt, der Akku laedt nur noch aus PV-Ueberschuss.
+  Ab 40 % wird auf "Smart Matching" zurueckgeschaltet und der Speicher
+  versorgt wieder das Haus, bis er erneut bei 18 % steht.
+
+  Der Zustand des Automaten liegt ausschliesslich im input_select - es gibt
+  bewusst keinen Merker-Helper und keinen Hauptschalter, die Regelung laeuft
+  ohne Eingriff.
+
+  Gewolltes Verhalten an truebe Tagen: wird 40 % nicht erreicht, bleibt der
+  Speicher gesperrt und sammelt still ein, bis er die Schwelle am naechsten
+  Tag schafft. Das kostet wenig, da er bei 18 % ohnehin nichts Nutzbares
+  vorhaelt, und spart die Rundlaufverluste des Pendelns.
+
+  Steht der Modus auf einem dritten Wert (Quick Charge, Standby, Dynamic
+  Trading ...), greift kein Zweig und die Automation haelt still. Umgekehrt
+  wird eine manuelle Wahl innerhalb der beiden Automatik-Modi zurueckgezogen:
+  wer oberhalb 40 % von Hand "Smart Charge Only" waehlt, wird auf "Smart
+  Matching" zurueckgesetzt.
+
+  Nicht abgedeckt: "Dynamic Smart Matching", "Dynamic Trading + Smart
+  Matching" und "Smart Discharge Only" entladen laut Paket-Code ebenfalls -
+  dort wirkt die Hysterese nicht.
+
+mode: single
+max_exceeded: silent
+
+trace:
+  stored_traces: 30
+
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.zendure_total_state_of_charge
+    above: 39
+    id: freigeben
+    note: >-
+      above ist exklusiv, der Sensor liefert ganze Prozent - 39 feuert also
+      ab 40 %. Trotz des Alias "40 %" ist 39 hier der korrekte Wert.
+  - trigger: numeric_state
+    entity_id: sensor.zendure_total_state_of_charge
+    below: 19
+    id: sperren
+    note: >-
+      below ist exklusiv - feuert ab 18 %. Tiefer kommt der Speicher im
+      Normalbetrieb nicht, weil das Paket bei SOC <= Mindest-SOC abregelt.
+  - trigger: state
+    entity_id: input_select.zendure_operation_mode
+    id: resync
+    note: >-
+      Schliesst die Reaktionsluecke bei einem Moduswechsel von aussen.
+      Kein Rueckkopplungsrisiko: nach einer eigenen Umschaltung findet der
+      Lauf den jeweils anderen Modus vor, damit ist keine Bedingung mehr
+      erfuellt und der Lauf endet ohne Aktion.
+  - trigger: homeassistant
+    event: start
+    id: resync
+    note: >-
+      Ein numeric_state-Trigger ist nach dem Start nicht scharf, wenn der
+      Wert die Schwelle bereits erfuellt. Wirkt in der Praxis selten, weil
+      der SOC-Sensor beim Start meist noch unavailable ist - dann faengt es
+      der Zeittakt ab. Kostet nichts, deshalb drin.
+  - trigger: time_pattern
+    minutes: "/10"
+    id: resync
+    note: >-
+      Netz gegen verpasste Flanken (Sensor unavailable, Reload, HA waehrend
+      des Uebergangs aus). Rund 144 Leerlaeufe pro Tag, rechnerisch
+      vernachlaessigbar; stored_traces ist erhoeht, damit die echten
+      Umschaltungen nicht aus dem Trace-Ringpuffer gedraengt werden.
+
+actions:
+  - choose:
+      - alias: Entladung freigeben (SOC >= 40 %)
+        conditions:
+          - condition: numeric_state
+            entity_id: sensor.zendure_total_state_of_charge
+            above: 39
+          - condition: state
+            entity_id: input_select.zendure_operation_mode
+            state: Smart Charge Only
+            note: >-
+              Waechter: nur aus dem automationseigenen Sperrzustand heraus
+              freigeben. Dritte Modi bleiben unangetastet.
+        sequence:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.zendure_operation_mode
+            data:
+              option: Smart Matching
+      - alias: Ladevorrang - Entladung sperren (SOC <= 18 %)
+        conditions:
+          - condition: numeric_state
+            entity_id: sensor.zendure_total_state_of_charge
+            below: 19
+          - condition: state
+            entity_id: input_select.zendure_operation_mode
+            state: Smart Matching
+            note: >-
+              Waechter wie oben. Diese Richtung ist der Tiefentladeschutz.
+        sequence:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.zendure_operation_mode
+            data:
+              option: Smart Charge Only
+    note: >-
+      Bewusst zustands- statt flankenbasiert: entschieden wird ueber den
+      Ist-Zustand, nicht ueber condition: trigger. Nur so koennen Start-,
+      Modus- und Zeit-Resync dieselben Zweige benutzen. Die Trigger-IDs
+      bleiben fuer die Trace-Lesbarkeit erhalten.
+
+      Kein default-Zweig: Stillhalten ist der gewollte Normalfall. Im
+      Totband 19-39 % sind beide Modi zulaessig, dort wird nichts geaendert.
+
+      Faellt der SOC-Sensor auf unavailable, sind beide numeric_state-
+      Bedingungen false und der Lauf endet folgenlos - in beide Richtungen
+      die sichere Seite.
