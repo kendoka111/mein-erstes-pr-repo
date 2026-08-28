@@ -39,9 +39,10 @@ description: >-
   wird auf "Smart Matching" zurueckgeschaltet und der Speicher versorgt
   wieder das Haus, bis er erneut bei 18 % steht.
 
-  Faellt der SOC unter die Mindest-SOC von 18 %, laedt das Paket
-  modusunabhaengig mit 1200 W aus dem Netz nach. Das ist Verhalten des
-  Pakets, nicht dieser Automation, und bleibt bewusst unangetastet.
+  Faellt der SOC unter die Mindest-SOC von 18 %, laedt das Paket auch im
+  gesperrten Zustand "Smart Charge Only" mit 1200 W aus dem Netz nach. Das
+  ist Verhalten des Pakets, nicht dieser Automation, und bleibt bewusst
+  unangetastet.
 
   Der Zustand des Automaten liegt ausschliesslich im input_select - es gibt
   bewusst keinen Merker-Helper und keinen Hauptschalter, die Regelung laeuft
