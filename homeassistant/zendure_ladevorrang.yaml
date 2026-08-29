@@ -2,7 +2,12 @@
 #
 # Anlage:  Zendure SolarFlow 2400 Pro, 1x AB2000 (2,4 kWh)
 # Paket:   "Zendure zenSDK (Gielz)" - automation.zendure_zensdk_gielz_global
-# Stand:   Entwurf, in Home Assistant noch NICHT angelegt.
+# Stand:   Angelegt am 29.08.2026, 09:25 (Europe/Berlin), ueber die Config-API.
+#          Freigabe durch Dr. Schmidt in Fassung af3a007.
+# Entity:  automation.zendure_ladevorrang_hysterese_40_18
+#          Achtung: HA leitet die entity_id aus dem alias ab, nicht aus id:.
+#          Der Speicherschluessel (unique_id) ist zendure_ladevorrang_hysterese
+#          und deckt sich mit dem id: im Rumpf.
 # Format:  Einzelnes Mapping, gedacht fuer die Config-API. Wer es stattdessen
 #          in automations.yaml uebernimmt, muss es als Listeneintrag einruecken.
 #
