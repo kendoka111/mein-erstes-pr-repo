@@ -84,8 +84,15 @@ triggers:
     below: 19
     id: sperren
     note: >-
-      below ist exklusiv - feuert ab 18 %. Tiefer kommt der Speicher im
-      Normalbetrieb nicht, weil das Paket bei SOC <= Mindest-SOC abregelt.
+      below ist exklusiv - feuert ab 18 %. Das Paket beendet die aktive
+      Entladung an der Mindest-SOC (der Entladezweig ist auf
+      total_soc > min_soc gegattert) - genau daher das Pendeln. Der SOC
+      sinkt durch Eigenverbrauch und Standby-Verluste trotzdem auf 17 %,
+      belegt in drei aufeinanderfolgenden Naechten (27., 28. und 29.08.);
+      der Schutzzweig holt ihn dann aus dem Netz zurueck. Fuer diesen
+      Trigger ohne Belang: die Flanke 19 -> 18 hat da bereits gefeuert,
+      ein weiteres Absinken erzeugt keine neue - der Zeit-Resync greift
+      ohnehin zustandsbasiert.
   - trigger: state
     entity_id: input_select.zendure_operation_mode
     id: resync
