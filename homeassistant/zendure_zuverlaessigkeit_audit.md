@@ -3,13 +3,14 @@
 Anlass: Am 06.09. stand der Akku ab ca. 13:17 Uhr durchgehend im Bypass/Standby,
 obwohl er bei 95 % SOC lag und das Haus zeitweise 150–280 W aus dem Netz zog.
 Zusätzlich lief die PV-Erzeugung mindestens seit Beginn der Aufzeichnung
-(sicher nachweisbar für den 06.09., Startzeitpunkt davor unbekannt) auf eine
-stille 153-W-Grenze gedeckelt ("Netzeinspeisung verboten" in der Zendure-App).
+(sicher nachweisbar für den 06.09., Startzeitpunkt davor unbekannt) auf den
+jeweiligen Hausverbrauch gedeckelt (89–158 W je nach Tageszeit,
+"Netzeinspeisung verboten" in der Zendure-App) statt frei zu erzeugen.
 Beides wurde nicht von Home Assistant gemeldet, sondern zufällig beim Blick
 aufs Handy entdeckt. Verlorene Autarkie an diesem einen Nachmittag: die
 Differenz zwischen dem, was PV bei offener Grenze lieferte (300–430 W,
-belegt ab 15:57 Uhr), und den gedeckelten ~150 W, während gleichzeitig ein
-voller Akku nicht aushalf.
+belegt ab 15:57 Uhr), und der Deckelung auf den Hausverbrauch davor,
+während gleichzeitig ein voller Akku nicht aushalf.
 
 Ziel dieses Dokuments: jede beobachtete Fehlerklasse benennen, die
 nachgewiesene Ursache von der bloßen Vermutung trennen, und für jede eine
