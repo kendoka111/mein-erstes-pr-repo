@@ -93,39 +93,39 @@
     - condition: template
       value_template: >
         {% set kritisch = [
-          'sensor.zendure_charging_mode',
-          'sensor.zendure_power',
-          'sensor.zendure_soc_limit_status',
-          'sensor.zendure_calibrating',
-          'sensor.zendure_error',
-          'sensor.zendure_storage_mode',
+          'sensor.zendure_charging_mode', 'sensor.zendure_power',
+          'sensor.zendure_soc_limit_status', 'sensor.zendure_calibrating',
+          'sensor.zendure_error', 'sensor.zendure_storage_mode',
           'sensor.zendure_total_state_of_charge'
         ] %}
-        {% set veraltet = kritisch
-          | select('has_value')
-          | select('lt', (now() - timedelta(minutes=10)) | as_local, attribute='last_reported')
-          | list %}
-        {{ veraltet | count > 0 }}
+        {% set grenze = now() - timedelta(minutes=10) %}
+        {% set ns = namespace(liste=[]) %}
+        {% for eid in kritisch %}
+          {% if states[eid] is not none and states[eid].last_reported < grenze %}
+            {% set ns.liste = ns.liste + [eid] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.liste | count > 0 }}
   actions:
     - action: notify.mobile_app_sm_a725f
       data:
         title: "Zendure: Sensoren eingefroren"
         message: >
           {% set kritisch = [
-            'sensor.zendure_charging_mode',
-            'sensor.zendure_power',
-            'sensor.zendure_soc_limit_status',
-            'sensor.zendure_calibrating',
-            'sensor.zendure_error',
-            'sensor.zendure_storage_mode',
+            'sensor.zendure_charging_mode', 'sensor.zendure_power',
+            'sensor.zendure_soc_limit_status', 'sensor.zendure_calibrating',
+            'sensor.zendure_error', 'sensor.zendure_storage_mode',
             'sensor.zendure_total_state_of_charge'
           ] %}
-          {% set veraltet = kritisch
-            | select('has_value')
-            | select('lt', (now() - timedelta(minutes=10)) | as_local, attribute='last_reported')
-            | list %}
+          {% set grenze = now() - timedelta(minutes=10) %}
+          {% set ns = namespace(liste=[]) %}
+          {% for eid in kritisch %}
+            {% if states[eid] is not none and states[eid].last_reported < grenze %}
+              {% set ns.liste = ns.liste + [eid] %}
+            {% endif %}
+          {% endfor %}
           Diese Zendure-Sensoren liefern seit über 10 Minuten keine frischen
-          Werte mehr: {{ veraltet | join(', ') }}. Vermutlich REST-Reload-
+          Werte mehr: {{ ns.liste | join(', ') }}. Vermutlich REST-Reload-
           Nachwirkung (Unique-ID-Kollision) - HA-Core-Neustart hilft meist.
   mode: single
   max_exceeded: silent
@@ -148,7 +148,7 @@
         {% set msg = trigger.event.data.message | string %}
         {{ trigger.event.data.name == 'homeassistant.components.rest_command'
            and 'properties/write' in msg
-           and ('400' in msg or '4' ~ '0' ~ '0' in msg) }}
+           and '400' in msg }}
   actions:
     - action: notify.mobile_app_sm_a725f
       data:
