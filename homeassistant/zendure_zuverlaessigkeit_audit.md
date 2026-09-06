@@ -38,6 +38,23 @@ erreichte 95 % bereits am 05.09. um 11:50 Uhr und entlud sich danach
 störungsfrei die ganze Nacht. Der Unterschied ist der Kommunikationsfehler
 zum Gerät, nicht der Ladestand.
 
+**Bestätigter Workaround (06.09., 17:09 Uhr):** Normen hat
+`input_select.zendure_operation_mode` manuell auf "Manual" und direkt
+zurück auf "Smart Matching" gestellt — nicht einfach nochmal denselben
+Wert gesetzt, sondern über einen anderen Modus dazwischen. Ergebnis
+sofort danach live geprüft: `charging_mode` sprang auf "Discharging",
+`zendure_power` auf -402 W, `home_energy_meter_power` auf -3 W (praktisch
+volle Autarkie). Das ist damit die erste Massnahme, die den Bypass
+zuverlaessig durchbrochen hat - anders als Stromlos-Neustart des Hubs,
+HA-Core-Neustart, REST-Reload und ein korrekter manueller
+`rest_command.zendure_x_discharge`-Aufruf, die alle nichts bewirkt haben.
+Vermutlich erzwingt der echte Moduswechsel (nicht das erneute Setzen
+desselben Werts) eine harte Neubewertung im Geraet selbst. Praktischer
+Vorteil: aus der Ferne durchführbar, kein physischer Zugriff nötig. Bis
+Zendure den zugrundeliegenden Fehler behebt (siehe unten, GitHub-Issue
+Zendure/Zendure-HA #1505), ist das der schnellste bekannte Weg, den Akku
+wieder herauszuholen.
+
 **Offen, nicht belegt:** ob der `client_error` selbst schon Symptom eines
 tieferliegenden Problems ist (Zendure zeigte separat `sensor.zendure_storage_mode`
 = "Flash Memory" statt "RAM" fest — die paketeigene Rückschaltregel dafür
@@ -161,6 +178,34 @@ die eigene `zendure_ladevorrang_hysterese`-Automation nachweislich nie
 selbst setzt (sie kennt nur Smart Matching/Smart Charge Only). Das
 spricht für manuelle Troubleshooting-Versuche in genau diesem Fenster,
 klärt die offene Frage aber nicht abschließend.
+
+Ergänzung dazu (06.09., nach dem bestätigten Workaround oben): Der
+tatsächlich wirksame Schritt war kein "Aufheben der Einspeisesperre",
+sondern ein echter Moduswechsel (Manual -> Smart Matching). Die
+Einspeisesperre und der Bypass-Hänger waren zwei unabhängige Probleme,
+die zufällig am selben Nachmittag zusammenfielen.
+
+---
+
+## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
+
+Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
+offiziellen Zendure/Zendure-HA-Repository:
+[Issue #1505](https://github.com/Zendure/Zendure-HA/issues/1505) —
+"SF2400 Pro stops discharging after reaching 100% SoC — output stays at
+0 W despite valid output limit". Exakt unser Symptom, betrifft explizit
+den SolarFlow 2400 Pro nach Erreichen der SoC-Obergrenze. Dort
+dokumentiert: 46 verworfene Entlade-Befehle in 45 Minuten, Ursache im
+dortigen Fall ein sporadisch vom Gerät gemeldetes niedrigeres
+`inverseMaxPower`-Limit, das die (andere) offizielle Integration
+stillschweigend verworfen statt gekappt hat. Fix dafür
+([PR #1506](https://github.com/Zendure/Zendure-HA/pull/1506)) am
+18.07.2026 gemerged — betrifft aber die Zendure/Zendure-HA-Codebasis,
+nicht das hier verwendete Gielz-zenSDK-Paket. Das zugrunde liegende
+Geräteverhalten (Bypass-Lock nach SoC-Obergrenze) ist damit als
+firmwareseitiger Zendure-Fehler extern bestätigt, unabhängig von unserer
+HA-Konfiguration. Ein Support-Fall bei Zendure wurde entsprechend
+vorbereitet.
 
 ---
 
