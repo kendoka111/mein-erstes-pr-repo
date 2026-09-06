@@ -1,0 +1,161 @@
+# Vier Wächter-Automationen aus homeassistant/zendure_zuverlaessigkeit_audit.md
+# (Fassung nach Dr.-Schmidt-Freigabe vom 06.09.2026).
+#
+# Zweck: kein Kontrollzweig, keine Steuerung des Akkus/der PV — nur Meldung
+# per Push, wenn eine der vier am 06.09. beobachteten Fehlerklassen wieder
+# auftritt. Ziel ist, dass Normen es aus einer Benachrichtigung erfährt,
+# statt zufällig beim Blick aufs Handy.
+#
+# Noch NICHT enthalten: der Plausibilitätsvergleich PV-Ist gegen
+# Solar-Prognose aus Fehlerklasse 2 im Auditdokument. Der braucht laut
+# Dr.-Schmidt-Prüfung erst eine Kalibrierung anhand mehrerer echter Tage,
+# sonst drohen Fehlalarme an bewölkten Tagen. Nur der Sensor-Unknown-Teil
+# von Fehlerklasse 2 ist hier umgesetzt.
+
+- id: zendure_waechter_bypass_haenger
+  alias: "Zendure Wächter: Akku entlädt nicht trotz Bedarf"
+  description: >
+    Fehlerklasse 1 aus dem Audit. Meldet, wenn der Akku spürbar über der
+    Mindest-SOC liegt, das Haus mehr als die Entlade-Startschwelle aus dem
+    Netz zieht, und der Akku laut sensor.zendure_charging_mode trotzdem
+    NICHT "Discharging" ist - und das durchgehend seit mindestens 10
+    Minuten. Prüft operation_mode bewusst NICHT (Entscheidung Normen,
+    06.09.): meldet auch, wenn der Modus manuell auf Standby/Manual steht.
+    SOC-Schwelle 30 % ist hart codiert statt an minimum_allowed_state_of_charge
+    gekoppelt, weil ein fester, grosszuegiger Sicherheitsabstand zur echten
+    Mindest-SOC (18 %) hier robuster ist als eine Rechnung mit Puffer.
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.home_energy_meter_power
+      above: input_number.zendure_setting_start_discharging_at
+      for: "00:10:00"
+  conditions:
+    - condition: numeric_state
+      entity_id: sensor.zendure_total_state_of_charge
+      above: 30
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: sensor.zendure_charging_mode
+          state: "Discharging"
+  actions:
+    - action: notify.mobile_app_sm_a725f
+      data:
+        title: "Zendure: Akku entlädt nicht"
+        message: >
+          Akku bei {{ states('sensor.zendure_total_state_of_charge') }} %,
+          Haus zieht {{ states('sensor.home_energy_meter_power') }} W aus
+          dem Netz, aber Lademodus ist "{{ states('sensor.zendure_charging_mode') }}"
+          statt "Discharging". Seit mind. 10 Minuten so.
+  mode: single
+  max_exceeded: silent
+
+- id: zendure_waechter_export_status_unbekannt
+  alias: "Zendure Wächter: PV-Export-Status nicht lesbar"
+  description: >
+    Fehlerklasse 2 (Sensor-Teil) aus dem Audit. sensor.zendure_pv_export_mode
+    stand vor dem 06.09. wochenlang durchgehend auf "unknown", ohne dass es
+    auffiel - die Netzeinspeisungs-Sperre war für HA unsichtbar. Meldet,
+    wenn der Sensor laenger als 2 Stunden in unknown/unavailable haengt.
+  triggers:
+    - trigger: state
+      entity_id: sensor.zendure_pv_export_mode
+      to:
+        - "unknown"
+        - "unavailable"
+      for: "02:00:00"
+  actions:
+    - action: notify.mobile_app_sm_a725f
+      data:
+        title: "Zendure: Export-Status unklar"
+        message: >
+          sensor.zendure_pv_export_mode liefert seit über 2 Stunden keinen
+          lesbaren Wert (unknown/unavailable). Die Netzeinspeisungs-Sperre
+          ist für Home Assistant gerade unsichtbar - in der Zendure-App
+          nachsehen.
+  mode: single
+  max_exceeded: silent
+
+- id: zendure_waechter_sensor_eingefroren
+  alias: "Zendure Wächter: Sensoren liefern keine frischen Werte mehr"
+  description: >
+    Fehlerklasse 3 aus dem Audit. Nach dem REST-Reload vom 06.09. 13:26 Uhr
+    blieben mehrere Zendure-Sensoren auf altem Stand haengen (last_reported
+    aktualisierte sich nicht mehr), obwohl das Geraet weiterlief. Prueft
+    alle 15 Minuten eine feste Liste kritischer Sensoren auf last_reported
+    aelter als 10 Minuten. Template statt native for:-Bedingung, weil ein
+    natives state-for nur auf last_changed (Wertaenderung) reagiert, nicht
+    auf ausbleibende Aktualisierung bei gleichbleibendem Wert.
+  triggers:
+    - trigger: time_pattern
+      minutes: "/15"
+  conditions:
+    - condition: template
+      value_template: >
+        {% set kritisch = [
+          'sensor.zendure_charging_mode',
+          'sensor.zendure_power',
+          'sensor.zendure_soc_limit_status',
+          'sensor.zendure_calibrating',
+          'sensor.zendure_error',
+          'sensor.zendure_storage_mode',
+          'sensor.zendure_total_state_of_charge'
+        ] %}
+        {% set veraltet = kritisch
+          | select('has_value')
+          | select('lt', (now() - timedelta(minutes=10)) | as_local, attribute='last_reported')
+          | list %}
+        {{ veraltet | count > 0 }}
+  actions:
+    - action: notify.mobile_app_sm_a725f
+      data:
+        title: "Zendure: Sensoren eingefroren"
+        message: >
+          {% set kritisch = [
+            'sensor.zendure_charging_mode',
+            'sensor.zendure_power',
+            'sensor.zendure_soc_limit_status',
+            'sensor.zendure_calibrating',
+            'sensor.zendure_error',
+            'sensor.zendure_storage_mode',
+            'sensor.zendure_total_state_of_charge'
+          ] %}
+          {% set veraltet = kritisch
+            | select('has_value')
+            | select('lt', (now() - timedelta(minutes=10)) | as_local, attribute='last_reported')
+            | list %}
+          Diese Zendure-Sensoren liefern seit über 10 Minuten keine frischen
+          Werte mehr: {{ veraltet | join(', ') }}. Vermutlich REST-Reload-
+          Nachwirkung (Unique-ID-Kollision) - HA-Core-Neustart hilft meist.
+  mode: single
+  max_exceeded: silent
+
+- id: zendure_waechter_befehl_abgelehnt
+  alias: "Zendure Wächter: Gerät lehnt Befehl ab (4xx)"
+  description: >
+    Fehlerklasse 4 aus dem Audit. Am 06.09. 13:58:42 Uhr lehnte das Geraet
+    einen rest_command mit leerem Payload (leere Seriennummer, leerer
+    outputLimit) mit HTTP 400 ab. Reagiert auf das system_log_event der
+    rest_command-Komponente, gefiltert auf die Zendure-Schreib-Ressource,
+    damit das unabhaengige HomeWizard-DNS-Rauschen (Issue 1 in
+    gielz-upstream-issues.md) nicht mit hineinzieht.
+  triggers:
+    - trigger: event
+      event_type: system_log_event
+  conditions:
+    - condition: template
+      value_template: >
+        {% set msg = trigger.event.data.message | string %}
+        {{ trigger.event.data.name == 'homeassistant.components.rest_command'
+           and 'properties/write' in msg
+           and ('400' in msg or '4' ~ '0' ~ '0' in msg) }}
+  actions:
+    - action: notify.mobile_app_sm_a725f
+      data:
+        title: "Zendure: Befehl abgelehnt"
+        message: >
+          Das Zendure-Gerät hat einen Steuerbefehl mit einem 4xx-Fehler
+          abgelehnt (properties/write). Möglicherweise wurde er mit einem
+          unvollständigen Payload gesendet. Log prüfen.
+  mode: single
+  max_exceeded: silent
