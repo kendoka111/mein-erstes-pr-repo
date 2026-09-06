@@ -60,6 +60,12 @@ Ausschluss würde die Automation an jedem Tag mit Verbrauchsspitzen über
 Bypass-Hänger unabhängig davon, ob die Ursache ein `client_error`, das
 Flash/RAM-Problem oder etwas drittes ist.
 
+**Entscheidung Normen (06.09.):** Der Wächter prüft `operation_mode`
+NICHT gesondert und meldet auch dann, wenn der Modus bewusst manuell auf
+"Standby"/"Manual" o. ä. steht. Begründung: eine Erinnerung, dass der Akku
+gerade nicht automatisch mitläuft, ist erwünscht. Kann bei Bedarf später
+geändert werden, ist kein Blocker für den Bau.
+
 ---
 
 ## Fehlerklasse 2 — Stille PV-Export-Deckelung ("Netzeinspeisung verboten")
