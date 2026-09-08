@@ -11,6 +11,14 @@
 # Dr.-Schmidt-Prüfung erst eine Kalibrierung anhand mehrerer echter Tage,
 # sonst drohen Fehlalarme an bewölkten Tagen. Nur der Sensor-Unknown-Teil
 # von Fehlerklasse 2 ist hier umgesetzt.
+#
+# 08.09.: trace.stored_traces auf 256 gesetzt (vorher HA-Default, ~5).
+# Der Bypass-Wächter feuerte am 07.09. 11:10 Uhr korrekt (Logbook bestätigt
+# den Trigger), aber die Push-Meldung kam auf dem Handy nicht an; der
+# damalige Trace war beim Nachsehen bereits durch neuere Läufe überschrieben.
+# Ohne Fehlereintrag im HA-Log spricht das für einen Zustellungsausfall
+# zwischen Push-Dienst und Handy (vermutlich derselbe stale Token wie beim
+# Login-Vorfall vom 06.09.), nicht für einen Fehler in der Automation.
 
 - id: zendure_waechter_bypass_haenger
   alias: "Zendure Wächter: Akku entlädt nicht trotz Bedarf"
@@ -49,6 +57,8 @@
           statt "Discharging". Seit mind. 10 Minuten so.
   mode: single
   max_exceeded: silent
+  trace:
+    stored_traces: 256
 
 - id: zendure_waechter_export_status_unbekannt
   alias: "Zendure Wächter: PV-Export-Status nicht lesbar"
@@ -75,6 +85,8 @@
           nachsehen.
   mode: single
   max_exceeded: silent
+  trace:
+    stored_traces: 256
 
 - id: zendure_waechter_sensor_eingefroren
   alias: "Zendure Wächter: Sensoren liefern keine frischen Werte mehr"
@@ -129,6 +141,8 @@
           Nachwirkung (Unique-ID-Kollision) - HA-Core-Neustart hilft meist.
   mode: single
   max_exceeded: silent
+  trace:
+    stored_traces: 256
 
 - id: zendure_waechter_befehl_abgelehnt
   alias: "Zendure Wächter: Gerät lehnt Befehl ab (4xx)"
@@ -159,3 +173,5 @@
           unvollständigen Payload gesendet. Log prüfen.
   mode: single
   max_exceeded: silent
+  trace:
+    stored_traces: 256
