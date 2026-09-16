@@ -19,6 +19,21 @@
 # Ohne Fehlereintrag im HA-Log spricht das für einen Zustellungsausfall
 # zwischen Push-Dienst und Handy (vermutlich derselbe stale Token wie beim
 # Login-Vorfall vom 06.09.), nicht für einen Fehler in der Automation.
+#
+# 16.09.: Fehlalarm im Bypass-Wächter entdeckt (Normen, 35-36% SOC). Ursache:
+# automation.zendure_ladevorrang_hysterese_40_18 (separate, bereits vorher
+# bestehende Automatisierung) sperrt die Entladung bewusst über
+# operation_mode "Smart Charge Only", sobald der SOC auf 18% fällt, und gibt
+# erst ab 40% wieder frei (Totband 19-39%). In diesem Modus ist "nicht
+# entladen" strukturell korrekt, unabhängig vom SOC-Wert. Das erklärt
+# rückwirkend auch den vermeintlich rätselhaften 09.09.-Vorfall aus der
+# Zendure-Korrespondenz: kein Geräte- oder REST-Fehler, sondern dieselbe
+# Hysterese. Fix: dritte Bedingung im Bypass-Wächter ergänzt, die
+# ausschließlich den einen Modus "Smart Charge Only" ausnimmt - unabhängig
+# vom SOC. Standby/Manual bleiben bewusst weiter scharf (Entscheidung vom
+# 06.09. gilt dort unverändert), da dort ein hängengebliebener oder
+# vergessener Zustand anders als bei der selbst-auflösenden Hysterese ein
+# echtes Problem sein kann.
 
 - id: zendure_waechter_bypass_haenger
   alias: "Zendure Wächter: Akku entlädt nicht trotz Bedarf"
@@ -27,11 +42,16 @@
     Mindest-SOC liegt, das Haus mehr als die Entlade-Startschwelle aus dem
     Netz zieht, und der Akku laut sensor.zendure_charging_mode trotzdem
     NICHT "Discharging" ist - und das durchgehend seit mindestens 10
-    Minuten. Prüft operation_mode bewusst NICHT (Entscheidung Normen,
-    06.09.): meldet auch, wenn der Modus manuell auf Standby/Manual steht.
-    SOC-Schwelle 30 % ist hart codiert statt an minimum_allowed_state_of_charge
-    gekoppelt, weil ein fester, grosszuegiger Sicherheitsabstand zur echten
-    Mindest-SOC (18 %) hier robuster ist als eine Rechnung mit Puffer.
+    Minuten. Prüft operation_mode NICHT allgemein (Entscheidung Normen,
+    06.09.): meldet weiterhin, wenn der Modus manuell auf Standby/Manual
+    steht. SOC-Schwelle 30 % ist hart codiert statt an
+    minimum_allowed_state_of_charge gekoppelt, weil ein fester,
+    grosszuegiger Sicherheitsabstand zur echten Mindest-SOC (18 %) hier
+    robuster ist als eine Rechnung mit Puffer.
+    Ausnahme seit 16.09.: der eine Modus "Smart Charge Only" ist ausgenommen,
+    siehe Kommentar oben im Dateikopf - dort sperrt die separate Hysterese-
+    Automatisierung (zendure_ladevorrang_hysterese_40_18) die Entladung
+    bewusst und strukturell korrekt, unabhängig vom SOC-Wert.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
@@ -46,6 +66,11 @@
         - condition: state
           entity_id: sensor.zendure_charging_mode
           state: "Discharging"
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: input_select.zendure_operation_mode
+          state: "Smart Charge Only"
   actions:
     - action: notify.mobile_app_sm_a725f
       data:
