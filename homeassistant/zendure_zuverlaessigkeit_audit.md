@@ -295,9 +295,34 @@ zweiten Patch (14:33) und dem tatsächlichen Wechsel zu "Discharging"
 Nachwirkung des Firmware-Updates, ein noch unbekannter dritter
 Automatisierungs-Effekt, oder eine normale Reaktionsträgheit des Geräts
 nach längerem Bypass. Weitere Beobachtung nötig, ob diese Verzögerung bei
-künftigen Vorfällen wiederkehrt oder eine Einmaligkeit war. Abend-Check
-für den 26.09. bleibt bestehen, jetzt mit Fokus auf Wiederholbarkeit ohne
-mehrminütige Verzögerung.
+künftigen Vorfällen wiederkehrt oder eine Einmaligkeit war.
+
+**Abend-Check 26.09., 19:31 Uhr (geplant, Ergebnis):** Alle vier
+Prüfpunkte bestanden. `storage_mode` blieb von 14:33 Uhr bis zum
+Check-Zeitpunkt durchgehend "RAM Memory" — kein einziger Rückfall nach
+Flash Memory, der Deadlock-Fix hält über den ganzen Nachmittag/Abend.
+`charging_mode` ist zuverlässig auf "Discharging" gewechselt und blieb ab
+16:43:48 Uhr durchgehend stabil dort (kein Hängen im Standby mehr).
+`home_energy_meter_power` lag beim Check bei -1,1 W (Akku deckt
+Hausbedarf fast exakt). Die neue Automatisierung
+`zendure_ausgangsleistung_bei_vollem_akku` zeigte genau einen sauberen
+Wechsel 800→650 W (14:44:51 Uhr, als `soc_limit_status` nach Entladestart
+auf "Normal Operation" fiel) und danach kein Flattern.
+
+**Neue Beobachtung (nicht Fehlerklasse 5, vermutlich unkritisch):**
+Zwischen 15:53 und 16:44 Uhr wechselte `charging_mode` rund 130 Mal
+zwischen "Standby" und "Discharging" (Median-Abstand im Sekunden- bis
+niedrigen Minutenbereich). Deckt sich zeitlich exakt mit
+`home_energy_meter_power`, der in genau diesem Fenster zwischen -137,8 W
+und +121,7 W pendelte — knapp um die Entlade-Startschwelle (100 W)
+herum. `storage_mode` blieb dabei durchgehend "RAM Memory", also kein
+Zusammenhang mit Fehlerklasse 5. Liest sich als normale Reaktion der
+Automatisierung auf einen zu diesem Zeitpunkt tatsächlich unruhigen
+Hausverbrauch (vermutlich ein an-/abschaltendes Gerät), nicht als
+Automatisierungsfehler. Potenziell relevant für Relais-Verschleiß, falls
+sich dieses Muster künftig regelmäßig wiederholt — dann wäre eine
+Entprellung (z. B. kurze `for:`-Verzögerung vor dem Umschalten) zu
+erwägen. Für heute keine Aktion nötig.
 
 ---
 
