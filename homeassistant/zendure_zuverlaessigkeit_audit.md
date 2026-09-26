@@ -230,14 +230,74 @@ mit Bedacht zu behandeln: ein künftiges Gielz-Update könnte diesen
 Branch überschreiben — bei Paket-Updates gegenprüfen, ob der Patch noch
 vorhanden ist.
 
-**Bekannte Restlücke:** Auch mit `storage_mode` = "RAM Memory" hat die
-Entladung nach dem manuellen `rest_command.zendure_save_in_ram`-Aufruf am
-26.09. nicht sofort eingesetzt (charging_mode blieb einige Minuten auf
-"Standby", bevor sich die Lage durch sinkenden Hausbedarf von selbst
-entspannte) — ob der neue Wach-Pfad das zuverlässig behebt oder ob es
-eine zusätzliche geräteseitige Verzögerung beim tatsächlichen
-Relais-Schalten gibt, ist nach diesem einen Patch-Tag noch nicht
-abschließend verifiziert. Abend-Check für den 26.09. eingeplant.
+**Bekannte Restlücke (Vormittag):** Auch mit `storage_mode` = "RAM Memory"
+hat die Entladung nach dem manuellen `rest_command.zendure_save_in_ram`-
+Aufruf am 26.09. nicht sofort eingesetzt (charging_mode blieb einige
+Minuten auf "Standby", bevor sich die Lage durch sinkenden Hausbedarf von
+selbst entspannte) — ob der neue Wach-Pfad das zuverlässig behebt oder ob
+es eine zusätzliche geräteseitige Verzögerung beim tatsächlichen
+Relais-Schalten gibt, war nach dem ersten Patch noch nicht abschließend
+verifiziert.
+
+**Nachtrag 26.09., 14:29–14:40 Uhr — zweiter, tieferliegender Fund und
+finale Behebung:** Am Nachmittag trat der Hänger erneut auf (`charging_mode`
+"Standby" seit 14:13, `home_energy_meter_power` 250–330 W Netzbezug,
+`zendure_power` 0 W), diesmal kurz nachdem Normen das Firmware-Update auf
+SolarFlow 2400 Pro V2.0.4 durchgeführt hatte (vorher V2.0.2) — zeitliche
+Überschneidung, siehe Einordnung unten. Live-Trace-Analyse eines
+Automatisierungslaufs um 14:30:10 Uhr deckte einen zweiten, bis dahin
+unentdeckten Fehler auf: **derselbe 5-Sekunden-Zyklus feuerte gleichzeitig
+den Wach-Branch (heute Vormittag gefixt) UND den "Put on standby after xx
+minutes of inactivity"-Branch**, weil Letzterer nur auf
+`storage_mode`/`charging_mode`/`calibrating` prüfte, aber nicht darauf, ob
+gerade akuter Entladebedarf besteht. Ergebnis: `rest_command.zendure_full_standby`
+und `rest_command.zendure_x_discharge` gingen im Abstand von ~40
+Millisekunden an dasselbe Gerät raus — ein Wettlauf zweier
+gegensätzlicher Befehle, den das Gerät mit Verharren im Bypass "gewann".
+
+**Zweiter Fix (14:33 Uhr, config_hash vor Patch `bab48c9832900f26`, danach
+`a5a45183210c83ec`):** Spiegelbildliche Sperre im Standby-Branch ergänzt —
+er darf nicht mehr auslösen, solange Entladebedarf besteht:
+```yaml
+condition: not
+conditions:
+  - condition: numeric_state
+    entity_id: sensor.home_energy_meter_power
+    above: input_number.zendure_setting_start_discharging_at
+```
+Trace-Bestätigung direkt danach (14:34:10 Uhr): Standby-Branch korrekt
+`false` trotz erfüllter Grundbedingungen, weil die neue Sperre griff — kein
+erneuter Rückfall nach Flash Memory mehr. Die Automatisierung schickte in
+der Folge weiter zuverlässig `x_discharge`-Befehle raus; das Gerät selbst
+brauchte bis 14:40:04 Uhr, um darauf mit "Discharging" zu reagieren
+(bestätigt sowohl in HA: `zendure_power` -727 W, als auch in der
+Zendure-App: 432 W Entladevorgang, 800 W Hausausgang, Netzbezug von 330 W
+auf 125 W gefallen). Die rund 6-minütige Verzögerung zwischen Fix und
+sichtbarer Entladung bleibt als offene Frage stehen (siehe unten).
+
+**Einordnung Firmware-Update (V2.0.2 → V2.0.4):** Das Update wurde von
+Normen etwa zeitgleich mit dem zweiten Auftreten des Hängers eingespielt,
+bevor der zweite Fix identifiziert war. Der offizielle Changelog nennt nur
+"Bekannte Probleme behoben" ohne Details. Da der Hänger auch nach
+abgeschlossenem Update fortbestand und sich erst durch den zweiten
+Automatisierungs-Patch auflöste, ist die naheliegendste Lesart, dass das
+Update das Symptom nicht behoben hat — die Koinzidenz lässt sich aber mit
+den vorliegenden Daten nicht vollständig ausschließen, da beide Eingriffe
+(Update und zweiter Patch) in einem Fenster von rund 10 Minuten
+zusammenfielen. Für das offene Zendure-Ticket ist das dennoch verwertbar:
+Bypass-Hänger nachweislich auch auf V2.0.4 reproduziert, mit Beleg
+(Zeitstempel, REST-Payloads), dass valide Entlade-Befehle beim Gerät
+ankamen, ohne dass es sofort reagierte.
+
+**Bekannte Restlücke (nach beiden Fixes):** Die ~6 Minuten zwischen dem
+zweiten Patch (14:33) und dem tatsächlichen Wechsel zu "Discharging"
+(14:40) sind nicht erklärt — möglich sind eine geräteseitige
+Nachwirkung des Firmware-Updates, ein noch unbekannter dritter
+Automatisierungs-Effekt, oder eine normale Reaktionsträgheit des Geräts
+nach längerem Bypass. Weitere Beobachtung nötig, ob diese Verzögerung bei
+künftigen Vorfällen wiederkehrt oder eine Einmaligkeit war. Abend-Check
+für den 26.09. bleibt bestehen, jetzt mit Fokus auf Wiederholbarkeit ohne
+mehrminütige Verzögerung.
 
 ---
 
@@ -294,3 +354,13 @@ Scharfschalten kalibriert werden müssen.
   (hebt `max_discharge_power` bei vollem Akku von 650 auf 800 W an) in
   `zendure_ausgangsleistung_dynamisch.yaml` dokumentiert — ausdrücklich
   kein Fix für Fehlerklasse 5, per Live-Gegenprobe davon abgegrenzt.
+- **Fassung 4 (26.09.2026, Nachmittag):** Fehlerklasse 5 um einen zweiten,
+  tieferliegenden Fund ergänzt — Wettlauf zwischen dem (vormittags
+  gefixten) Wach-Branch und dem Standby-Timeout-Branch im selben
+  5-Sekunden-Zyklus, der gegensätzliche Befehle ans Gerät schickte. Zweiter
+  Patch in `automation.zendure_zensdk_gielz_global` (Sperre im
+  Standby-Branch bei akutem Entladebedarf) live bestätigt: Netzbezug fiel
+  von 330 W auf 125 W, Akku ging auf "Discharging" (-727 W bzw. 432 W laut
+  App). Einordnung des zeitgleich eingespielten Firmware-Updates (V2.0.2 →
+  V2.0.4) ergänzt; unerklärte ~6-Minuten-Verzögerung zwischen Patch und
+  sichtbarer Entladung als offene Restfrage vermerkt.
