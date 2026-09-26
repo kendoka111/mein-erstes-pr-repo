@@ -1,0 +1,144 @@
+# Balkonheizung: PV-Überschuss (26.09.2026)
+#
+# Hintergrund: Das myStrom-Panel auf dem Balkon (switch.mystrom_device,
+# ~300 W Leistungsaufnahme laut sensor.mystrom_device_leistung) wurde neu
+# angeschlossen. Ziel: es soll nur dann heizen, wenn echter PV-Überschuss
+# besteht, statt Netzstrom zu verheizen.
+#
+# Wie "Überschuss" hier erkannt wird: Die Zendure-Anlage drosselt PV bei
+# verbotener Netzeinspeisung auf den Hausverbrauch (siehe Fehlerklasse 2 im
+# Zendure-Auditdokument) - eine echte "PV könnte mehr, wird aber
+# verschwendet"-Kennzahl existiert in HA nicht direkt. Statt dessen nutzt
+# diese Automatisierung denselben Trick wie
+# zendure_ausgangsleistung_bei_vollem_akku: sensor.zendure_soc_limit_status
+# == "Charging Limit Reached" (Akku voll, kann nichts mehr aufnehmen) UND
+# sensor.home_energy_meter_power niedrig (Haus zieht nichts nennenswertes
+# aus dem Netz) zusammen bedeuten, dass zusätzliche Last hier die PV-Erzeugung
+# eher "entsperrt", als dass sie Netzstrom verbraucht - solange die PV-Anlage
+# das physikalisch hergeben kann.
+#
+# Ein-Schwelle 20 W / Aus-Schwelle 150 W mit Debounce (2 Min. an, 1 Min. aus)
+# auf den numeric_state-Triggern - Lehre aus dem Zendure-Vorfall vom
+# 26.09. (Flatter-Fenster 15:53-16:44 Uhr bei Werten knapp um die
+# Entladeschwelle). numeric_state als CONDITION unterstützt kein 'for' (im
+# Gegensatz zum numeric_state-TRIGGER und zur state-CONDITION) - deshalb
+# sitzt der Debounce ausschließlich auf den Triggern, die Bedingungen prüfen
+# nur den aktuellen Momentanwert.
+#
+# Sonnenauf-/-untergang als zusätzlicher Rückfallschutz: falls
+# soc_limit_status einfriert (Fehlerklasse 3, Sensor-Freeze nach
+# REST-Reload), verhindert das ein nächtliches Einschalten durch eine
+# veraltete "Charging Limit Reached"-Anzeige.
+#
+# input_boolean.balkonheizung_automatik_aktiv: manueller Vorrangschalter.
+# Bei Aus lässt diese Automatisierung den Schalter komplett in Ruhe -
+# gewünscht, um das Panel bei Bedarf auch außerhalb der Überschuss-Logik
+# gezielt manuell heizen zu können, ohne dass die Automatik das sofort
+# zurückschaltet. Default: an.
+#
+# Bei Einrichtung (26.09., 21:xx Uhr) lief das Panel bereits manuell
+# (298 W, nachts, ohne PV, Akku im Entlade-Limit bei 18 % SOC) - reines
+# Netzheizen. Nach Rücksprache mit Normen soll die Automatisierung das
+# sofort korrigieren (Panel aus, da kein Überschuss).
+
+- id: balkon_heizung_ueberschuss
+  alias: "Balkonheizung: PV-Überschuss"
+  description: >
+    Schaltet die Balkonheizung (switch.mystrom_device) ein, solange die
+    Zendure-Batterie voll ist (sensor.zendure_soc_limit_status ==
+    "Charging Limit Reached") und das Haus dabei praktisch keinen
+    Netzbezug hat (sensor.home_energy_meter_power niedrig) - also echter
+    PV-Überschuss besteht, der sonst verpufft oder die PV-Erzeugung
+    künstlich gedeckelt hält. Schaltet aus, sobald die Batterie wieder
+    Ladebedarf hat oder das Haus klar aus dem Netz zieht (auch mit
+    Heizung an). Debounce (2 Min. an / 1 Min. aus) sitzt auf den
+    numeric_state-Triggern, da numeric_state als Bedingung kein 'for'
+    unterstützt. input_boolean.balkonheizung_automatik_aktiv als
+    manueller Vorrang-Schalter: bei Aus fasst diese Automatisierung den
+    Schalter nicht an. Sonnenauf-/-untergang als Rückfallschutz gegen
+    eine veraltete/eingefrorene soc_limit_status-Anzeige (siehe
+    Fehlerklasse 3 im Zendure-Audit).
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.home_energy_meter_power
+      below: 20
+      for:
+        minutes: 2
+      id: ueberschuss_an
+    - trigger: numeric_state
+      entity_id: sensor.home_energy_meter_power
+      above: 150
+      for:
+        minutes: 1
+      id: netzbezug_aus
+    - trigger: state
+      entity_id:
+        - sensor.zendure_soc_limit_status
+      id: soc_wechsel
+    - trigger: state
+      entity_id:
+        - input_boolean.balkonheizung_automatik_aktiv
+      id: automatik_toggle
+    - trigger: time_pattern
+      minutes: "/5"
+      id: resync
+    - trigger: homeassistant
+      event: start
+      id: resync
+  actions:
+    - choose:
+        - alias: "Überschuss vorhanden -> einschalten"
+          conditions:
+            - condition: state
+              entity_id: input_boolean.balkonheizung_automatik_aktiv
+              state: "on"
+            - condition: state
+              entity_id: sensor.zendure_soc_limit_status
+              state: "Charging Limit Reached"
+            - condition: numeric_state
+              entity_id: sensor.home_energy_meter_power
+              below: 20
+            - condition: sun
+              after: sunrise
+              before: sunset
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.mystrom_device
+            - action: logbook.log
+              data:
+                message: "☀️ PV-Überschuss: Balkonheizung eingeschaltet"
+                entity_id: switch.mystrom_device
+                name: " "
+        - alias: "Kein Überschuss mehr -> ausschalten"
+          conditions:
+            - condition: state
+              entity_id: input_boolean.balkonheizung_automatik_aktiv
+              state: "on"
+            - condition: or
+              conditions:
+                - condition: not
+                  conditions:
+                    - condition: state
+                      entity_id: sensor.zendure_soc_limit_status
+                      state: "Charging Limit Reached"
+                - condition: numeric_state
+                  entity_id: sensor.home_energy_meter_power
+                  above: 150
+                - condition: sun
+                  after: sunset
+                  before: sunrise
+          sequence:
+            - action: switch.turn_off
+              target:
+                entity_id: switch.mystrom_device
+            - action: logbook.log
+              data:
+                message: "🌙 Kein PV-Überschuss mehr: Balkonheizung ausgeschaltet"
+                entity_id: switch.mystrom_device
+                name: " "
+      default: []
+  mode: single
+  max_exceeded: silent
+  trace:
+    stored_traces: 256
