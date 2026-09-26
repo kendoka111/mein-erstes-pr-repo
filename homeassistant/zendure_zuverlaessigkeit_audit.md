@@ -187,6 +187,60 @@ die zufällig am selben Nachmittag zusammenfielen.
 
 ---
 
+## Fehlerklasse 5 — Henne-Ei-Deadlock zwischen Standby-Timeout und RAM-Weckbedingung (26.09.2026)
+
+**Nachgewiesen, live diagnostiziert (Dr.-Schmidt-Prüfung, Agent a96b2be7):**
+`automation.zendure_zensdk_gielz_global` schickt das Gerät nach
+`input_number.zendure_setting_standby_delay` (15 Min) ununterbrochenem
+`charging_mode` = "Standby" in `sensor.zendure_storage_mode` = "Flash
+Memory" (Branch "Put on standby after xx minutes of inactivity") — ein
+verschleißschonender Modus, der Schreibvorgänge ins Flash statt ins RAM
+umleitet (siehe Community-Doku zu anderen Zendure-HA-Projekten,
+arselzer/solarflow-homeassistant: ungeschützt ~17.000 Schreibvorgänge/Tag
+im 5-Sekunden-Takt). Der einzige Rückweg (Branch "When storage mode is
+set to Flash set it to RAM") verlangte bislang `sensor.zendure_power` >
+100 oder < 0 — Werte, die im schlafenden Zustand mit `zendure_power` = 0
+nie eintreten können. Ein Henne-Ei-Deadlock: das Gerät entlädt nicht, weil
+es schläft, und wacht laut Automatisierung nur auf, wenn es bereits (nicht
+nullwertige) Leistung liefert.
+
+Zweimal am selben Tag beobachtet: 10:35–11:37 Uhr (47+ Minuten,
+Netzbezug bis 1829 W bei 95–100 % SOC) und erneut ab 13:52 Uhr. Ein
+direkter, per Hand ausgelöster "Quick Discharge"-Befehl mit vollem
+Leistungswert blieb während des Hängers wirkungslos (Akku weiter 0 W) —
+das schließt aus, dass eine zu niedrige `max_discharge_power`-Einstellung
+die Ursache war (separat mit Live-Gegenprobe belegt: PV und Akku liefen
+am 26.09. 10:30–10:35 Uhr bereits gleichzeitig mit zusammen >1150 W bei
+identischem Setting).
+
+**Fix (26.09., in `automation.zendure_zensdk_gielz_global` direkt
+gepatcht, config_hash vor Patch `60bfc4a914099725`):** Der
+Rückweg-Branch bekommt eine dritte Wach-Bedingung, die unabhängig vom
+aktuellen Leistungsfluss greift, sobald tatsächlich Entladebedarf
+besteht:
+```yaml
+condition: numeric_state
+entity_id: sensor.home_energy_meter_power
+above: input_number.zendure_setting_start_discharging_at
+```
+Das durchbricht den Deadlock, sobald das Haus mehr zieht als die
+Entlade-Startschwelle, unabhängig davon ob `zendure_power` schon einen
+Wert ungleich 0 zeigt. Direktes Editieren eines Drittanbieter-Pakets ist
+mit Bedacht zu behandeln: ein künftiges Gielz-Update könnte diesen
+Branch überschreiben — bei Paket-Updates gegenprüfen, ob der Patch noch
+vorhanden ist.
+
+**Bekannte Restlücke:** Auch mit `storage_mode` = "RAM Memory" hat die
+Entladung nach dem manuellen `rest_command.zendure_save_in_ram`-Aufruf am
+26.09. nicht sofort eingesetzt (charging_mode blieb einige Minuten auf
+"Standby", bevor sich die Lage durch sinkenden Hausbedarf von selbst
+entspannte) — ob der neue Wach-Pfad das zuverlässig behebt oder ob es
+eine zusätzliche geräteseitige Verzögerung beim tatsächlichen
+Relais-Schalten gibt, ist nach diesem einen Patch-Tag noch nicht
+abschließend verifiziert. Abend-Check für den 26.09. eingeplant.
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
@@ -231,3 +285,12 @@ Scharfschalten kalibriert werden müssen.
   Stunden"); Fehlerklasse 4 (REST-400 mit leerem Payload) neu ergänzt;
   Kontext zur Moduswechsel-Kaskade als Zusatzbeleg zur offenen Frage in
   Fehlerklasse 1 aufgenommen.
+- **Fassung 3 (26.09.2026):** Fehlerklasse 5 neu ergänzt — Henne-Ei-
+  Deadlock zwischen Standby-Timeout und RAM-Weckbedingung, live per
+  Dr.-Schmidt-Prüfung diagnostiziert und noch am selben Tag direkt in
+  `automation.zendure_zensdk_gielz_global` gepatcht (dritte Wach-Bedingung
+  auf Basis von `home_energy_meter_power`). Zusätzlich neue,
+  eigenständige Automatisierung `zendure_ausgangsleistung_bei_vollem_akku`
+  (hebt `max_discharge_power` bei vollem Akku von 650 auf 800 W an) in
+  `zendure_ausgangsleistung_dynamisch.yaml` dokumentiert — ausdrücklich
+  kein Fix für Fehlerklasse 5, per Live-Gegenprobe davon abgegrenzt.
