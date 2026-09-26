@@ -5,25 +5,26 @@
 # angeschlossen. Ziel: es soll nur dann heizen, wenn echter PV-Überschuss
 # besteht, statt Netzstrom zu verheizen.
 #
-# Wie "Überschuss" hier erkannt wird: Die Zendure-Anlage drosselt PV bei
-# verbotener Netzeinspeisung auf den Hausverbrauch (siehe Fehlerklasse 2 im
-# Zendure-Auditdokument) - eine echte "PV könnte mehr, wird aber
-# verschwendet"-Kennzahl existiert in HA nicht direkt. Statt dessen nutzt
-# diese Automatisierung denselben Trick wie
-# zendure_ausgangsleistung_bei_vollem_akku: sensor.zendure_soc_limit_status
+# Wie "Überschuss" hier erkannt wird (Korrektur nach Normens Vorgabe -
+# ursprünglich fälschlich auf "kein Netzbezug" statt auf echte
+# Netzeinspeisung ausgelegt, siehe unten): sensor.zendure_soc_limit_status
 # == "Charging Limit Reached" (Akku voll, kann nichts mehr aufnehmen) UND
-# sensor.home_energy_meter_power niedrig (Haus zieht nichts nennenswertes
-# aus dem Netz) zusammen bedeuten, dass zusätzliche Last hier die PV-Erzeugung
-# eher "entsperrt", als dass sie Netzstrom verbraucht - solange die PV-Anlage
-# das physikalisch hergeben kann.
+# sensor.home_energy_meter_power < -300 (das Haus speist bereits mehr als
+# 300 W ins Netz ein - Vorzeichenkonvention in diesem System: positiv =
+# Netzbezug, negativ = Netzeinspeisung). Zum Zeitpunkt der Einrichtung war
+# Netzeinspeisung erlaubt (sensor.zendure_pv_export_mode == "Allow",
+# input_boolean.zendure_setting_pv_export_disabled == off) und tatsächlich
+# im Tagesverlauf bis -562 W belegt - der Ansatz ist also nicht nur
+# theoretisch, sondern beobachtet scharf.
 #
-# Ein-Schwelle 20 W / Aus-Schwelle 150 W mit Debounce (2 Min. an, 1 Min. aus)
-# auf den numeric_state-Triggern - Lehre aus dem Zendure-Vorfall vom
-# 26.09. (Flatter-Fenster 15:53-16:44 Uhr bei Werten knapp um die
-# Entladeschwelle). numeric_state als CONDITION unterstützt kein 'for' (im
-# Gegensatz zum numeric_state-TRIGGER und zur state-CONDITION) - deshalb
-# sitzt der Debounce auf den Triggern, die Bedingungen prüfen nur den
-# aktuellen Momentanwert.
+# Ein-Schwelle -300 W (mehr als 300 W Einspeisung) / Aus-Schwelle -200 W
+# (Einspeisung fällt unter 200 W) mit Debounce (2 Min. an, 1 Min. aus - "Zeit
+# x" laut Normens Vorgabe) auf den numeric_state-Triggern - Lehre aus dem
+# Zendure-Vorfall vom 26.09. (Flatter-Fenster 15:53-16:44 Uhr bei Werten
+# knapp um eine Schwelle). numeric_state als CONDITION unterstützt kein
+# 'for' (im Gegensatz zum numeric_state-TRIGGER und zur state-CONDITION) -
+# deshalb sitzt der Debounce auf den Triggern, die Bedingungen prüfen nur
+# den aktuellen Momentanwert.
 #
 # Dr.-Schmidt-Fund (26.09., vor Freigabe): Weil die choose-Bedingungen nur
 # den Momentanwert prüfen, konnte JEDER der sechs Trigger (nicht nur der
@@ -36,19 +37,31 @@
 # der resync-Trigger in zendure_ausgangsleistung_dynamisch.yaml), (2) beide
 # choose-Zweige bekommen zusätzlich eine condition: trigger, die das
 # Ein-/Ausschalten auf die bereits debounced Trigger (plus Resync-Ticks,
-# beim Ausschalten zusätzlich den jetzt selbst debounced soc_wechsel)
-# beschränkt. automatik_toggle bleibt bewusst ohne eigenes for (sofortige
-# Neubewertung bei manuellem Umschalten), löst wegen der Trigger-Sperre
-# aber selbst kein Schalten mehr aus - im schlechtesten Fall zieht ein
-# frisch aktiviertes Automatik-Flag erst beim nächsten Resync-Tick (max.
-# 5 Minuten) nach, was hier als unkritisch bewertet wurde.
+# und - seit Runde 2 symmetrisch in beiden Zweigen - den jetzt selbst
+# debounced soc_wechsel) beschränkt. automatik_toggle bleibt bewusst ohne
+# eigenes for (sofortige Neubewertung bei manuellem Umschalten), löst wegen
+# der Trigger-Sperre aber selbst kein Schalten mehr aus - im schlechtesten
+# Fall zieht ein frisch aktiviertes Automatik-Flag erst beim nächsten
+# Resync-Tick (max. 5 Minuten) nach, was hier als unkritisch bewertet
+# wurde.
 #
 # Dr.-Schmidt-Fund Runde 2: soc_wechsel fehlte anfangs unbegründet in der
 # ON-Zweig-Trigger-Liste, obwohl er seit Fix 1 genauso 2-Minuten-debounced
 # ist wie im OFF-Zweig bereits berücksichtigt - eine unnötige, nicht
 # reflektierte Asymmetrie (bis zu 5 Min. Verzögerung beim Einschalten trotz
 # technisch gleichwertig abgesichertem Trigger). Behoben durch symmetrische
-# Aufnahme in beide Zweige.
+# Aufnahme in beide Zweige. Runde 2 damit final freigegeben
+# (config_hash 4a7c95d0880e2691).
+#
+# Nachtrag 26.09., 21:5x Uhr - Schwellen-Korrektur (nach Freigabe, vor
+# echtem Testlauf bei Tageslicht): Die freigegebene Version nutzte fälschlich
+# "kein Netzbezug" (< 20 W Import) als Überschuss-Maßstab statt echter
+# Einspeisung. Normen hat das richtiggestellt: an bei > 300 W Einspeisung,
+# aus bei < 200 W Einspeisung (1 Minute bestätigt). Nur die Schwellenwerte
+# und Vorzeichen wurden geändert (20 -> -300, 150 -> -200), die gesamte
+# Debounce-/Trigger-Gate-Struktur aus beiden Dr.-Schmidt-Runden bleibt
+# unverändert bestehen. Vor dem erneuten Scharfschalten nochmals kurz von
+# Dr. Schmidt gegengeprüft.
 #
 # Sonnenauf-/-untergang als zusätzlicher Rückfallschutz: falls
 # soc_limit_status einfriert (Fehlerklasse 3, Sensor-Freeze nach
@@ -71,28 +84,28 @@
   description: >
     Schaltet die Balkonheizung (switch.mystrom_device) ein, solange die
     Zendure-Batterie voll ist (sensor.zendure_soc_limit_status ==
-    "Charging Limit Reached") und das Haus dabei praktisch keinen
-    Netzbezug hat (sensor.home_energy_meter_power niedrig) - also echter
-    PV-Überschuss besteht, der sonst verpufft oder die PV-Erzeugung
-    künstlich gedeckelt hält. Schaltet aus, sobald die Batterie wieder
-    Ladebedarf hat oder das Haus klar aus dem Netz zieht (auch mit
-    Heizung an). Debounce (2 Min. an / 1 Min. aus) sitzt auf den
-    numeric_state-Triggern, da numeric_state als Bedingung kein 'for'
-    unterstützt. input_boolean.balkonheizung_automatik_aktiv als
-    manueller Vorrang-Schalter: bei Aus fasst diese Automatisierung den
-    Schalter nicht an. Sonnenauf-/-untergang als Rückfallschutz gegen
-    eine veraltete/eingefrorene soc_limit_status-Anzeige (siehe
-    Fehlerklasse 3 im Zendure-Audit).
+    "Charging Limit Reached") UND das Haus dabei mehr als 300 W ins Netz
+    einspeist (sensor.home_energy_meter_power < -300, 2 Min. bestätigt) -
+    also echter, ungenutzter PV-Überschuss. Schaltet aus, sobald die
+    Batterie wieder Ladebedarf hat, ODER die Einspeisung unter 200 W
+    fällt (home_energy_meter_power > -200, 1 Min. bestätigt).
+    input_boolean.balkonheizung_automatik_aktiv als manueller
+    Vorrang-Schalter: bei Aus fasst diese Automatisierung den Schalter
+    nicht an. Sonnenauf-/-untergang als Rückfallschutz gegen eine
+    veraltete/eingefrorene soc_limit_status-Anzeige (siehe Fehlerklasse 3
+    im Zendure-Audit). condition:trigger-Gates auf beiden Zweigen
+    (Dr.-Schmidt-Fix) verhindern ein Schalten über einen nicht-debounced
+    Trigger während einer Rauschspitze.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
-      below: 20
+      below: -300
       for:
         minutes: 2
       id: ueberschuss_an
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
-      above: 150
+      above: -200
       for:
         minutes: 1
       id: netzbezug_aus
@@ -124,7 +137,7 @@
               state: "Charging Limit Reached"
             - condition: numeric_state
               entity_id: sensor.home_energy_meter_power
-              below: 20
+              below: -300
             - condition: sun
               after: sunrise
               before: sunset
@@ -153,7 +166,7 @@
                       state: "Charging Limit Reached"
                 - condition: numeric_state
                   entity_id: sensor.home_energy_meter_power
-                  above: 150
+                  above: -200
                 - condition: sun
                   after: sunset
                   before: sunrise
