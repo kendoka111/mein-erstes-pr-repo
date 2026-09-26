@@ -22,8 +22,26 @@
 # 26.09. (Flatter-Fenster 15:53-16:44 Uhr bei Werten knapp um die
 # Entladeschwelle). numeric_state als CONDITION unterstützt kein 'for' (im
 # Gegensatz zum numeric_state-TRIGGER und zur state-CONDITION) - deshalb
-# sitzt der Debounce ausschließlich auf den Triggern, die Bedingungen prüfen
-# nur den aktuellen Momentanwert.
+# sitzt der Debounce auf den Triggern, die Bedingungen prüfen nur den
+# aktuellen Momentanwert.
+#
+# Dr.-Schmidt-Fund (26.09., vor Freigabe): Weil die choose-Bedingungen nur
+# den Momentanwert prüfen, konnte JEDER der sechs Trigger (nicht nur der
+# debounced ueberschuss_an/netzbezug_aus) das Ein-/Ausschalten auslösen -
+# z. B. wenn soc_wechsel genau während einer kurzen Rauschspitze von
+# home_energy_meter_power feuert. Belegt anhand der eigenen Live-Historie
+# (18:00-18:11 Uhr: Sprünge zwischen -79,6 W und +70,4 W innerhalb von
+# Millisekunden) und des dokumentierten Flatter-Fensters oben. Fix:
+# (1) soc_wechsel bekommt ein eigenes for: 2 Minuten (gleiches Muster wie
+# der resync-Trigger in zendure_ausgangsleistung_dynamisch.yaml), (2) beide
+# choose-Zweige bekommen zusätzlich eine condition: trigger, die das
+# Ein-/Ausschalten auf die bereits debounced Trigger (plus Resync-Ticks,
+# beim Ausschalten zusätzlich den jetzt selbst debounced soc_wechsel)
+# beschränkt. automatik_toggle bleibt bewusst ohne eigenes for (sofortige
+# Neubewertung bei manuellem Umschalten), löst wegen der Trigger-Sperre
+# aber selbst kein Schalten mehr aus - im schlechtesten Fall zieht ein
+# frisch aktiviertes Automatik-Flag erst beim nächsten Resync-Tick (max.
+# 5 Minuten) nach, was hier als unkritisch bewertet wurde.
 #
 # Sonnenauf-/-untergang als zusätzlicher Rückfallschutz: falls
 # soc_limit_status einfriert (Fehlerklasse 3, Sensor-Freeze nach
@@ -74,6 +92,8 @@
     - trigger: state
       entity_id:
         - sensor.zendure_soc_limit_status
+      for:
+        minutes: 2
       id: soc_wechsel
     - trigger: state
       entity_id:
@@ -101,6 +121,8 @@
             - condition: sun
               after: sunrise
               before: sunset
+            - condition: trigger
+              id: ["ueberschuss_an", "resync"]
           sequence:
             - action: switch.turn_on
               target:
@@ -128,6 +150,8 @@
                 - condition: sun
                   after: sunset
                   before: sunrise
+            - condition: trigger
+              id: ["netzbezug_aus", "resync", "soc_wechsel"]
           sequence:
             - action: switch.turn_off
               target:
