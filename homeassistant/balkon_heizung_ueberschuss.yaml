@@ -63,6 +63,16 @@
 # unverändert bestehen. Vor dem erneuten Scharfschalten nochmals kurz von
 # Dr. Schmidt gegengeprüft.
 #
+# Nachtrag 26.09., 22:0x Uhr - Batterie-voll-Bedingung beim Ausschalten
+# entfernt: Normens Vorgabe war "nur Ein/Aus über Netzeinspeisung, ohne
+# Batterie-voll-Bedingung beim Ausschalten" - der vorherige Stand hatte
+# noch "ODER Batterie nicht mehr voll" als zusätzlichen Ausschaltgrund im
+# OR-Block, was so nie verlangt war. Entfernt: der OFF-Zweig schaltet jetzt
+# ausschließlich über die Einspeisungsschwelle (bzw. den Nacht-Fallback)
+# aus, unabhängig vom Ladezustand der Batterie. Die Ein-Bedingung bleibt
+# unverändert an "Batterie voll UND Einspeisung > 300 W" gebunden -
+# Normens Vorgabe betraf ausdrücklich nur die Aus-Seite.
+#
 # Sonnenauf-/-untergang als zusätzlicher Rückfallschutz: falls
 # soc_limit_status einfriert (Fehlerklasse 3, Sensor-Freeze nach
 # REST-Reload), verhindert das ein nächtliches Einschalten durch eine
@@ -86,16 +96,18 @@
     Zendure-Batterie voll ist (sensor.zendure_soc_limit_status ==
     "Charging Limit Reached") UND das Haus dabei mehr als 300 W ins Netz
     einspeist (sensor.home_energy_meter_power < -300, 2 Min. bestätigt) -
-    also echter, ungenutzter PV-Überschuss. Schaltet aus, sobald die
-    Batterie wieder Ladebedarf hat, ODER die Einspeisung unter 200 W
-    fällt (home_energy_meter_power > -200, 1 Min. bestätigt).
+    also echter, ungenutzter PV-Überschuss. Schaltet AUSSCHLIESSLICH über
+    die Einspeisung wieder aus, sobald diese unter 200 W fällt
+    (home_energy_meter_power > -200, 1 Min. bestätigt) - bewusst OHNE
+    Batterie-voll-Bedingung beim Ausschalten (Normens explizite Vorgabe:
+    die Bedingung gilt nur fürs Einschalten, nicht fürs Ausschalten).
     input_boolean.balkonheizung_automatik_aktiv als manueller
     Vorrang-Schalter: bei Aus fasst diese Automatisierung den Schalter
-    nicht an. Sonnenauf-/-untergang als Rückfallschutz gegen eine
-    veraltete/eingefrorene soc_limit_status-Anzeige (siehe Fehlerklasse 3
-    im Zendure-Audit). condition:trigger-Gates auf beiden Zweigen
-    (Dr.-Schmidt-Fix) verhindern ein Schalten über einen nicht-debounced
-    Trigger während einer Rauschspitze.
+    nicht an. Sonnenuntergang als zusätzlicher Rückfallschutz im
+    OFF-Zweig (Nacht schaltet immer aus, unabhängig vom Momentanwert).
+    condition:trigger-Gates auf beiden Zweigen (Dr.-Schmidt-Fix)
+    verhindern ein Schalten über einen nicht-debounced Trigger während
+    einer Rauschspitze.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
@@ -159,11 +171,6 @@
               state: "on"
             - condition: or
               conditions:
-                - condition: not
-                  conditions:
-                    - condition: state
-                      entity_id: sensor.zendure_soc_limit_status
-                      state: "Charging Limit Reached"
                 - condition: numeric_state
                   entity_id: sensor.home_energy_meter_power
                   above: -200
