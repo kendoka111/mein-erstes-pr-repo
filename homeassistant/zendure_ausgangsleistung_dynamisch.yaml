@@ -1,0 +1,90 @@
+# Dynamische Ausgangsleistung bei vollem Akku (26.09.2026).
+#
+# Hintergrund: input_number.zendure_setting_max_discharge_power deckelt, wie
+# viel der Akku selbst zur Entladung beitragen darf (Gielz-Automatisierung
+# klemmt den berechneten Soll-Wert in "Smart Matching Control" auf diesen
+# Wert). Solange der Akku voll ist (SOC am konfigurierten Maximum,
+# sensor.zendure_soc_limit_status == "Charging Limit Reached") und ohnehin
+# nicht mehr laden kann, bleibt dieser Deckel ungenutzter Spielraum, den man
+# stattdessen der Entladung geben kann.
+#
+# Verwechslungsgefahr, die an diesem Tag live durchgespielt wurde: dieser
+# Deckel ist NICHT die Ursache des unabhaengig aufgetretenen Bypass-Hängers
+# vom selben Tag. Live-Gegenprobe (10:30-10:35 Uhr): PV lief mit ~1030 W UND
+# der Akku hat gleichzeitig mit ~150-170 W entladen, macht >1150 W kombiniert
+# - bei identischem 650-W-Setting, das seit Tagen unveraendert war. Ein
+# direkter "Quick Discharge"-Befehl mit vollen 650 W blieb während des
+# Hängers ebenfalls wirkungslos (Akku 0 W). Der Haenger selbst ist ein
+# separater Deadlock zwischen dem Standby-Timeout (Automatisierung schickt
+# das Geraet nach input_number.zendure_setting_standby_delay Minuten
+# Inaktivitaet in sensor.zendure_storage_mode="Flash Memory") und dessen
+# Weck-Bedingung (braucht sensor.zendure_power > 100 oder < 0, was im
+# schlafenden Zustand nie eintritt) - eigener, noch offener Fix, unabhaengig
+# von dieser Automatisierung hier.
+#
+# 800 W ist ein vorsichtiger Zwischenwert, kein aus Sensordaten belegtes
+# Hardware-Maximum: sensor.zendure_inverter_max_discharge_power ist nur ein
+# Echo dessen, was wir selbst per input_number setzen (siehe Branch
+# "Adjust maximum discharge power" in automation.zendure_zensdk_gielz_global,
+# rest_command.zendure_setting mit instellingitem "inverseMaxPower") - kein
+# unabhaengiger Hardware-Richtwert aus der Produktdokumentation.
+#
+# Verschleiss: aendert sich nur ein paar Mal pro Tag beim Ueberschreiten der
+# SOC-Grenze, nicht im 5-Sekunden-Regeltakt der Gielz-Automatisierung. Laut
+# Community-Dokumentation zu anderen Zendure-HA-Projekten (RAM- vs.
+# Flash-Schreibmodus, siehe sensor.zendure_storage_mode) ist das bei dieser
+# Frequenz unkritisch fuer den Flash-Speicher des Geraets.
+#
+# Nach Dr.-Schmidt-Pruefung ergaenzt um Start- und Zeit-Resync, analog zu
+# automation.zendure_ladevorrang_hysterese_40_18 - ohne das wuerde ein
+# HA-Neustart waehrend "Charging Limit Reached" den Deckel bis zur naechsten
+# echten Flanke (laut Historie teils Stunden) auf falschem Wert stehen
+# lassen. Der choose-Block entscheidet zustandsbasiert (Ist-Zustand von
+# soc_limit_status), nicht anhand der ausloesenden Flanke - alle drei
+# Trigger (Zustandswechsel, HA-Start, 10-Minuten-Takt) landen im selben
+# Zweig. Keine schaedliche Wechselwirkung mit der Hysterese- oder der
+# Bypass-Waechter-Automatisierung gefunden (beide lesen dieses Entity nicht;
+# ein hoeherer Deckel senkt tendenziell den Netzbezug und damit das
+# Ausloeserisiko des Waechters, statt es zu erhoehen).
+
+- id: zendure_ausgangsleistung_bei_vollem_akku
+  alias: "Zendure: Ausgangsleistung bei vollem Akku anheben"
+  description: >
+    Hebt input_number.zendure_setting_max_discharge_power auf 800 W an,
+    solange der Akku voll ist (sensor.zendure_soc_limit_status ==
+    "Charging Limit Reached") und daher ohnehin nicht mehr laden kann - der
+    Spielraum wird dann fuer Entladung genutzt statt ungenutzt zu bleiben.
+    Setzt zurueck auf 650 W, sobald wieder Ladebedarf besteht.
+  triggers:
+    - trigger: state
+      entity_id: sensor.zendure_soc_limit_status
+      for: "00:02:00"
+      id: resync
+    - trigger: homeassistant
+      event: start
+      id: resync
+    - trigger: time_pattern
+      minutes: "/10"
+      id: resync
+  actions:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: sensor.zendure_soc_limit_status
+              state: "Charging Limit Reached"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.zendure_setting_max_discharge_power
+              data:
+                value: 800
+      default:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.zendure_setting_max_discharge_power
+          data:
+            value: 650
+  mode: single
+  max_exceeded: silent
+  trace:
+    stored_traces: 256
