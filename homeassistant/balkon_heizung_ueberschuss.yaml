@@ -43,6 +43,13 @@
 # frisch aktiviertes Automatik-Flag erst beim nächsten Resync-Tick (max.
 # 5 Minuten) nach, was hier als unkritisch bewertet wurde.
 #
+# Dr.-Schmidt-Fund Runde 2: soc_wechsel fehlte anfangs unbegründet in der
+# ON-Zweig-Trigger-Liste, obwohl er seit Fix 1 genauso 2-Minuten-debounced
+# ist wie im OFF-Zweig bereits berücksichtigt - eine unnötige, nicht
+# reflektierte Asymmetrie (bis zu 5 Min. Verzögerung beim Einschalten trotz
+# technisch gleichwertig abgesichertem Trigger). Behoben durch symmetrische
+# Aufnahme in beide Zweige.
+#
 # Sonnenauf-/-untergang als zusätzlicher Rückfallschutz: falls
 # soc_limit_status einfriert (Fehlerklasse 3, Sensor-Freeze nach
 # REST-Reload), verhindert das ein nächtliches Einschalten durch eine
@@ -122,7 +129,7 @@
               after: sunrise
               before: sunset
             - condition: trigger
-              id: ["ueberschuss_an", "resync"]
+              id: ["ueberschuss_an", "resync", "soc_wechsel"]
           sequence:
             - action: switch.turn_on
               target:
