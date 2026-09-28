@@ -382,6 +382,45 @@ Abnahmekriterium (offen, im Abend-Check 28.09. zu prüfen): In der
 nach dem letzten Bezugswert über 100 W; mindestens ein Trace, in dem die
 Schlaf-Sperre greift.
 
+**Ergebnis Abend-Check 28.09. (20:00 Uhr) — Abnahme bestanden.**
+
+- Einziger Wechsel RAM→Flash am Nachmittag: 14:30:07 Uhr, 5 Min 4,6 s
+  nach dem letzten Bezugswert über 100 W (14:25:03 Uhr). Früher schlief das
+  Gerät nicht ein. Genau so soll die Schlaf-Sperre `max_5min` wirken:
+  Das Einschlafen passt auf die Sekunde zu ihrem Ablauf.
+  Ein Trace, in dem die Sperre greift, lässt sich im Nachhinein nicht mehr
+  zeigen: Die Gielz-Automatisierung läuft alle 5 s, ihre gespeicherten
+  Traces sind nach wenigen Sekunden überschrieben. Dieser Teil des
+  Kriteriums ist daher nur indirekt belegt, über den zeitlichen Ablauf.
+- Wecken: 42 s nach Beginn eines anhaltenden Bedarfs. Kurze Spitzen von
+  4 s und 6 s wecken das Gerät nicht mehr. Ab 14:53:33 Uhr blieb es den
+  ganzen Abend in RAM. Das Flattern vom Vormittag ist weg.
+- Entladung lief ohne Unterbrechung von 15:56 bis 19:29 Uhr, bis zum
+  Discharge Limit.
+- Nicht behoben (war auch nicht Ziel): Das Gerät reagiert weiter träge.
+  Um 14:53:33 Uhr war es wach, entladen hat es erst ab 15:00:00 Uhr. Das
+  bleibt im Zendure-Ticket.
+- Der Netzbezug von ~150 W zwischen 14:20:59 und 14:25:03 Uhr war kein
+  Zendure-Fehler: Die Balkonheizung (~300 W) wurde von Hand eingeschaltet.
+  Der Zähler sprang um +298 W, das Schalt-Ereignis steht ohne
+  HA-Kontext im Logbuch (siehe unten).
+- Bypass-Wächter: Heute nur `failed_conditions`, kein Hänger erkannt.
+- Verbindungsabbrüche von 192.168.178.101 (25.–28.09., jeweils 1–8 s)
+  fallen zeitlich mit keinem der Fehlerbilder zusammen. Das
+  Systemprotokoll zeigt seit dem HA-Neustart um 15:31 Uhr keine
+  Einträge zu dieser IP.
+
+Am Rande (betrifft nicht Zendure): Die Balkonheizung wurde heute um
+14:21, 14:52, 18:57 und 19:47 Uhr ohne HA-Kontext eingeschaltet. Ohne
+Kontext heißt: kein Befehl über HA, sondern am Gerät selbst oder über die
+myStrom-App. Zwischen 12:04 und 13:21 Uhr hat die Automatik 16 Mal
+eingeschaltet und wieder aus. Grund ist eine Rückkopplung: Die Heizung
+zieht ~300 W, die Hysterese beträgt aber nur 100 W (an unter −300 W,
+aus über −200 W). Schaltet die Heizung ein, sinkt die Einspeisung unter
+200 W, die Heizung geht aus, die Einspeisung steigt wieder über 300 W,
+und das Spiel beginnt von vorn. Die Schwellen hat Normen festgelegt.
+Eine Änderung ist deshalb nur vorgeschlagen, nicht umgesetzt.
+
 ---
 
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
@@ -454,3 +493,7 @@ Scharfschalten kalibriert werden müssen.
   `24cba37c9f8593ab`. HEMS-Mitsteuerung geprüft und nicht nachgewiesen.
   Falsche Aussage zum verschleißarmen Speichermodus (Flash statt RAM)
   berichtigt.
+- **Fassung 6 (28.09.2026, Abend):** Ergebnis des Abend-Checks
+  nachgetragen: Abnahme der Entprellung bestanden. Die Trägheit des Geräts
+  bleibt offen (Zendure-Ticket). Das Flattern der Balkonheizung ist als
+  Rückkopplung eingeordnet, dazu ein Vorschlag, der noch nicht umgesetzt ist.
