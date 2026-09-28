@@ -193,11 +193,15 @@ die zufällig am selben Nachmittag zusammenfielen.
 `automation.zendure_zensdk_gielz_global` schickt das Gerät nach
 `input_number.zendure_setting_standby_delay` (15 Min) ununterbrochenem
 `charging_mode` = "Standby" in `sensor.zendure_storage_mode` = "Flash
-Memory" (Branch "Put on standby after xx minutes of inactivity") — ein
-verschleißschonender Modus, der Schreibvorgänge ins Flash statt ins RAM
-umleitet (siehe Community-Doku zu anderen Zendure-HA-Projekten,
-arselzer/solarflow-homeassistant: ungeschützt ~17.000 Schreibvorgänge/Tag
-im 5-Sekunden-Takt). Der einzige Rückweg (Branch "When storage mode is
+Memory" (Branch "Put on standby after xx minutes of inactivity"). Im
+Flash-Modus werden Steuerbefehle dauerhaft ins Flash geschrieben; der
+verschleißarme Modus für häufige Befehle ist "RAM Memory", in dem die
+5-Sekunden-Befehle nur flüchtig im RAM landen (siehe Community-Doku zu
+anderen Zendure-HA-Projekten, arselzer/solarflow-homeassistant: im
+Flash-Modus ~17.000 Schreibvorgänge/Tag im 5-Sekunden-Takt). Korrektur
+28.09.: Die frühere Fassung dieses Absatzes nannte fälschlich Flash den
+verschleißschonenden Modus (von Dr. Schmidt bei der Abnahme der
+Entprellung beanstandet). Der einzige Rückweg (Branch "When storage mode is
 set to Flash set it to RAM") verlangte bislang `sensor.zendure_power` >
 100 oder < 0 — Werte, die im schlafenden Zustand mit `zendure_power` = 0
 nie eintreten können. Ein Henne-Ei-Deadlock: das Gerät entlädt nicht, weil
@@ -324,6 +328,60 @@ sich dieses Muster künftig regelmäßig wiederholt — dann wäre eine
 Entprellung (z. B. kurze `for:`-Verzögerung vor dem Umschalten) zu
 erwägen. Für heute keine Aktion nötig.
 
+**Nachtrag 28.09. — Kurzzeit-Flattern trotz beider Patches, dritter Fix
+(Entprellung):** Am 28.09. zog das Haus bei vollem Akku (SOC 94–95 %,
+"Charging Limit Reached") wiederholt 100–200 W aus dem Netz. Dr.-Schmidt-
+Cross-Check (13:25–13:50 Uhr) belegte: Beide Patches vom 26.09. waren
+noch aktiv (Hash `a5a45183210c83ec`), prüften aber den Hausverbrauch als
+unentprellten Momentanwert im 5-Sekunden-Takt. Ein einziger Takt über
+100 W weckte das Gerät (Storage→RAM, `x_discharge`), der nächste Takt
+darunter schickte es per Standby-Branch zurück nach Flash, bevor der
+Entlade-Befehl wirken konnte (13:29:52 RAM für 5 s, 13:33:48 für 3 s,
+14:10:07 für 10 s; am 27.09. 14:14–15:05 rund 25 Wechsel). Der Akku hat
+von 11:08 bis 13:45 Uhr praktisch nicht entladen. Ein Mitsteuern durch
+Zendure-HEMS wurde dabei geprüft und nicht gefunden: keine weitere
+Zendure-Integration in HA, geräteseitige Einstellungen änderten sich in
+vier Tagen nur auf HA-Befehl; die morgendlichen 1200-W-Ladestöße
+(26.–28.09., 06:00–06:30) sind der SOC-Schutz der Gielz-Automatisierung
+bei SOC 17 % < Minimum 18 %.
+
+Fix (28.09., nach Dr.-Schmidt-Abnahme mit Auflagen, Hash vorher
+`a5a45183210c83ec`, nachher `24cba37c9f8593ab`): zwei statistics-Helfer
+auf `sensor.home_energy_meter_power`, beide mit `keep_last_sample: true`:
+- `sensor.zendure_netzbezug_min_40s` (`value_min`, `max_age` 40 s,
+  `sampling_size` 100) ersetzt den Momentanwert in der Weck-Bedingung
+  (`actions[1].choose[0].conditions[2].conditions[2]`). Geweckt wird nur,
+  wenn der Bezug im ganzen Fenster über der Schwelle lag. 40 s statt 20 s,
+  weil der Zähler stoßweise meldet (Lücken bis 16 s); 40 s garantieren
+  mindestens ~24 s tatsächlich beobachteten Bezug.
+- `sensor.zendure_netzbezug_max_5min` (`value_max`, `max_age` 300 s,
+  `sampling_size` 500) ersetzt den Momentanwert in der Schlaf-Sperre
+  (`actions[1].choose[1].conditions[4].conditions[0]`). Schlafen gelegt
+  wird nur, wenn 5 Minuten lang kein Wert über der Schwelle lag — das
+  Gerät bleibt nach jedem Bedarf mindestens 5 Min wach (RAM). 500 statt
+  100 Samples, weil bei Lastwechseln bis ~225 Werte in 5 Min anfallen und
+  der Puffer sonst still auf ~2 Min schrumpft.
+- Ein erster Entwurf mit 20-s-Fenstern für beide wurde von Dr. Schmidt
+  nicht freigegeben und wieder entfernt.
+
+Verhalten bei Sensorausfall: Wird die Quelle `unavailable`, werden auch
+die Helfer `unavailable`; die Bedingungen ergeben false (kein Wecken,
+Schlafen erlaubt) — unkritisch, Smart Matching ist dann ohnehin gesperrt
+und Emergency Shutdown greift. Meldet die Quelle `unknown`, halten die
+Helfer wegen `keep_last_sample` den letzten gültigen Wert; lag der über
+100 W, bleibt das Gerät bis zur Rückkehr der Quelle wach (harmlos).
+
+Was dieser Fix nicht behebt: die geräteseitige Trägheit (13:36:40–13:38:22
+Uhr 102 s durchgehender Bedarf ohne Anlauf trotz RAM; 26.09. ~6 Min) —
+offen im Zendure-Ticket. Ebenfalls vorgemerkt, nicht neu: der Weck-Branch
+prüft den SOC nicht. Die Wächter-Erweiterung auf dieses Flatter-Muster
+("Fix 2") ist auf Normens Wunsch zurückgestellt.
+
+Abnahmekriterium (offen, im Abend-Check 28.09. zu prüfen): In der
+`storage_mode`-Historie kein Wechsel RAM→Flash mehr früher als 5 Min
+nach dem letzten Bezugswert über 100 W; mindestens ein Trace, in dem die
+Schlaf-Sperre greift.
+
 ---
 
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
@@ -389,3 +447,10 @@ Scharfschalten kalibriert werden müssen.
   App). Einordnung des zeitgleich eingespielten Firmware-Updates (V2.0.2 →
   V2.0.4) ergänzt; unerklärte ~6-Minuten-Verzögerung zwischen Patch und
   sichtbarer Entladung als offene Restfrage vermerkt.
+- **Fassung 5 (28.09.2026):** Fehlerklasse 5 um einen dritten Fix ergänzt —
+  Entprellung der Weck- und Schlaf-Bedingung über zwei statistics-Helfer
+  (`min_40s` zum Wecken, `max_5min` als Schlaf-Sperre), nach
+  Dr.-Schmidt-Abnahme mit Auflagen; Hash der Gielz-Automatisierung jetzt
+  `24cba37c9f8593ab`. HEMS-Mitsteuerung geprüft und nicht nachgewiesen.
+  Falsche Aussage zum verschleißarmen Speichermodus (Flash statt RAM)
+  berichtigt.
