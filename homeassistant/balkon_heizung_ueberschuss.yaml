@@ -17,8 +17,9 @@
 # im Tagesverlauf bis -562 W belegt - der Ansatz ist also nicht nur
 # theoretisch, sondern beobachtet scharf.
 #
-# Ein-Schwelle -300 W (mehr als 300 W Einspeisung) / Aus-Schwelle -200 W
-# (Einspeisung fällt unter 200 W) mit Debounce (2 Min. an, 1 Min. aus - "Zeit
+# Ein-Schwelle -300 W (mehr als 300 W Einspeisung) / Aus-Schwelle -50 W
+# (Einspeisung fällt unter 50 W; bis 28.09. abends -200 W, siehe Nachtrag
+# unten) mit Debounce (2 Min. an, 1 Min. aus - "Zeit
 # x" laut Normens Vorgabe) auf den numeric_state-Triggern - Lehre aus dem
 # Zendure-Vorfall vom 26.09. (Flatter-Fenster 15:53-16:44 Uhr bei Werten
 # knapp um eine Schwelle). numeric_state als CONDITION unterstützt kein
@@ -114,6 +115,33 @@
 # Erlaubnisliste entfernt, keine neue Bedingung/kein neuer Pfad hinzugefügt)
 # und kann daher strukturell kein neues Race einführen.
 #
+# Nachtrag 28.09. abends - Rückkopplungs-Flattern, Aus-Schwelle -200 -> -50:
+# 12:13-13:22 Uhr schaltete die Automatik 13 Mal ein und 14 Mal aus, jeweils
+# nach ~1 Minute - diesmal über die echten, debounced Trigger
+# (ueberschuss_an/netzbezug_aus), nicht über resync. Ursache ist
+# physikalisch: das Panel zieht ~295 W, der Abstand zwischen Ein- und
+# Ausschaltpunkt betrug aber nur 100 W. Einschalten drückte die Einspeisung
+# von > 300 W auf < 200 W, das löste nach 1 Minute das Ausschalten aus,
+# danach stieg sie wieder über 300 W.
+# Normens Vorgabe: Einschalten bleibt bei 300 W, Ausschalten bei unter 50 W
+# Einspeisung - nur die zwei Schwellen geändert, keine neuen Helfer oder
+# Trigger. Nachgerechnet mit den Zählerdaten 12:00-13:35 (Dr.-Schmidt-
+# Simulation, validiert an allen 27 realen Schaltvorgängen): 2 statt 13
+# Einschaltungen, Panel läuft 12:28-13:08 durch.
+# Bekannter Restfall: der Abstand (250 W) ist kleiner als die Panel-Last.
+# Liegt der Überschuss ohne Panel genau zwischen 300 und ~345 W, kann es
+# weiter takten (heute einmal: 13:21:50 an, 13:22:52 aus) - deutlich
+# seltener als vorher (Band 45 W statt 195 W). Auf Normens Wunsch so belassen.
+# Akku-Schutz geprüft (Dr.-Schmidt-Fund): deckt der Akku das Panel, regelt
+# Gielz das Netz auf ca. -5 W (discharge_buffer 5 W). Mit der Schwelle -50 W
+# hätte netzbezug_aus im Entladefenster 16:00-16:30 Uhr 8 Mal ausgelöst,
+# das erste Mal nach 4 Minuten - das Panel heizt den Akku also nicht leer.
+# (Die zwischenzeitlich erwogene Variante "aus erst bei Netzbezug > 0 W"
+# hätte genau das nicht erkannt und wurde deshalb verworfen.)
+# Live eingespielt 28.09. abends, config_hash vorher 40d99463bdcb7f50,
+# nachher 29527419542ebca4 (Trigger, Bedingungen und description mit
+# dieser Datei abgeglichen).
+
 # Bei Einrichtung (26.09., 21:xx Uhr) lief das Panel bereits manuell
 # (298 W, nachts, ohne PV, Akku im Entlade-Limit bei 18 % SOC) - reines
 # Netzheizen. Nach Rücksprache mit Normen soll die Automatisierung das
@@ -127,10 +155,14 @@
     "Charging Limit Reached") UND das Haus dabei mehr als 300 W ins Netz
     einspeist (sensor.home_energy_meter_power < -300, 2 Min. bestätigt) -
     also echter, ungenutzter PV-Überschuss. Schaltet AUSSCHLIESSLICH über
-    die Einspeisung wieder aus, sobald diese unter 200 W fällt
-    (home_energy_meter_power > -200, 1 Min. bestätigt) - bewusst OHNE
+    die Einspeisung wieder aus, sobald diese unter 50 W fällt
+    (home_energy_meter_power > -50, 1 Min. bestätigt) - bewusst OHNE
     Batterie-voll-Bedingung beim Ausschalten (Normens explizite Vorgabe:
     die Bedingung gilt nur fürs Einschalten, nicht fürs Ausschalten).
+    Seit 28.09. abends 300/50 statt 300/200: der größere Abstand verhindert
+    weitgehend, dass das Panel (~295 W) sein eigenes Ausschalten auslöst.
+    Deckt der Akku das Panel, hält die Gielz-Regelung das Netz bei ca.
+    -5 W - das liegt über -50 W, das Panel geht also auch dann aus.
     input_boolean.balkonheizung_automatik_aktiv als manueller
     Vorrang-Schalter: bei Aus fasst diese Automatisierung den Schalter
     nicht an. Sonnenuntergang als zusätzlicher Rückfallschutz im
@@ -150,7 +182,7 @@
       id: ueberschuss_an
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
-      above: -200
+      above: -50
       for:
         minutes: 1
       id: netzbezug_aus
@@ -206,7 +238,7 @@
               conditions:
                 - condition: numeric_state
                   entity_id: sensor.home_energy_meter_power
-                  above: -200
+                  above: -50
                 - condition: sun
                   after: sunset
                   before: sunrise

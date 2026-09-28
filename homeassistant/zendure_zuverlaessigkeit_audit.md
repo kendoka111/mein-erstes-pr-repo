@@ -413,13 +413,19 @@ Schlaf-Sperre greift.
 Am Rande (betrifft nicht Zendure): Die Balkonheizung wurde heute um
 14:21, 14:52, 18:57 und 19:47 Uhr ohne HA-Kontext eingeschaltet. Ohne
 Kontext heißt: kein Befehl über HA, sondern am Gerät selbst oder über die
-myStrom-App. Zwischen 12:04 und 13:21 Uhr hat die Automatik 16 Mal
-eingeschaltet und wieder aus. Grund ist eine Rückkopplung: Die Heizung
-zieht ~300 W, die Hysterese beträgt aber nur 100 W (an unter −300 W,
-aus über −200 W). Schaltet die Heizung ein, sinkt die Einspeisung unter
-200 W, die Heizung geht aus, die Einspeisung steigt wieder über 300 W,
-und das Spiel beginnt von vorn. Die Schwellen hat Normen festgelegt.
-Eine Änderung ist deshalb nur vorgeschlagen, nicht umgesetzt.
+myStrom-App. Zwischen 12:13 und 13:22 Uhr hat die Automatik 13 Mal
+eingeschaltet und 14 Mal ausgeschaltet. (Eine frühere Fassung dieses
+Absatzes nannte „16 Mal“, gezählt aus den Logbuch-Meldungen. Die
+erscheinen aber auch, wenn die Heizung schon an war. Korrigiert nach dem
+Schaltverlauf, Dr.-Schmidt-Fund.) Grund ist eine Rückkopplung: Die
+Heizung zieht ~295 W, die Hysterese betrug aber nur 100 W (an unter
+−300 W, aus über −200 W). Schaltet die Heizung ein, sinkt die
+Einspeisung unter 200 W, die Heizung geht aus, die Einspeisung steigt
+wieder über 300 W, und das Spiel beginnt von vorn.
+Behoben am selben Abend nach Normens Vorgabe: Die Aus-Schwelle liegt
+jetzt bei −50 W, die Ein-Schwelle bleibt bei −300 W. Details und
+Restfall stehen in `balkon_heizung_ueberschuss.yaml`, Nachtrag 28.09.
+abends.
 
 ---
 
@@ -496,4 +502,5 @@ Scharfschalten kalibriert werden müssen.
 - **Fassung 6 (28.09.2026, Abend):** Ergebnis des Abend-Checks
   nachgetragen: Abnahme der Entprellung bestanden. Die Trägheit des Geräts
   bleibt offen (Zendure-Ticket). Das Flattern der Balkonheizung ist als
-  Rückkopplung eingeordnet, dazu ein Vorschlag, der noch nicht umgesetzt ist.
+  Rückkopplung eingeordnet und behoben: Aus-Schwelle von −200 auf −50 W
+  gesenkt, Zählung auf 13/14 korrigiert.
