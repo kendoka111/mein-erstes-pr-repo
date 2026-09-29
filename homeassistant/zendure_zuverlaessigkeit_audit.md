@@ -427,6 +427,60 @@ jetzt bei −50 W, die Ein-Schwelle bleibt bei −300 W. Details und
 Restfall stehen in `balkon_heizung_ueberschuss.yaml`, Nachtrag 28.09.
 abends.
 
+**Tages-Check 29.09. (Stand 20:30 Uhr)**
+
+- **Balkonheizung, erster Tag mit 300/50:** genau ein Zyklus.
+  - An um 12:05:40 durch die Automatik (soc_wechsel, 2 Min. nach
+    „Charging Limit Reached“), aus um 13:15:00 durch den Resync-Tick.
+    Laufzeit 69 Min.
+  - Kein Flattern, keine Schaltung ohne HA-Kontext, Modus den ganzen
+    Tag „Automatisch“.
+  - Das Aus um 13:15 kam über den Momentanwert am Resync-Tick. Im
+    5-Min.-Fenster davor lag die Einspeisung bei laufendem Panel im
+    Mittel bei 67 W, die Spitzen reichten bis +42 W Bezug. Der
+    Überschuss ging also gerade zu Ende.
+  - Danach lag der Überschuss bis Status-Ende (14:25) nie 2 Min. über
+    300 W. Wiedereinschalten war also korrekt nicht vorgesehen.
+- **650/800:**
+  - 800 W um 12:05:39, zwei Minuten nach „Charging Limit Reached“
+    (12:03:39). Das Gerät hat um 12:05:42 übernommen.
+  - 650 W um 14:27:31, zwei Minuten nach „Normal Operation“ (14:25:31).
+    Das Gerät hat um 14:27:33 übernommen.
+  - Das 800-W-Limit wurde bei Lastspitzen tatsächlich ausgeschöpft.
+- **Netzbezug:** Alle 5-Min.-Fenster mit Bezug lassen sich einer
+  Designregel zuordnen, ein Hänger war nicht dabei:
+  - Akku leer (18 %) bis 08:08 Uhr.
+  - Ladevorrang bis 40 %: erreicht 09:07:07, Entladung ab 09:07:15.
+  - Grundlast unter der 100-W-Startschwelle: 10:10–10:30 Uhr ~73 W,
+    13:50–14:00 Uhr ~46–86 W.
+  - Lastspitzen über dem 650/800-W-Limit: Koch- und Wasserkocher-Lasten
+    bis 2,4 kW.
+  - Ab 14:30 Uhr regelt der Akku das Netz im Mittel auf −2 bis −6 W.
+    Das passt zu discharge_buffer = 5 W.
+- **Wächter:** „Akku entlädt nicht trotz Bedarf“ hat heute nie
+  ausgelöst, jeder Lauf endete mit `failed_conditions`.
+  `sensor.zendure_error` meldete durchgehend „No Notifications“.
+- **Verbindung:** Ein gemeinsamer Aussetzer von Zendure (1 s) und myStrom
+  (20 s) um 00:46 Uhr, vermutlich WLAN oder Router. Weitere
+  myStrom-Aussetzer um 12:00 und 18:50 Uhr (je 20 s). Folgen hatte
+  keiner davon.
+- **Log:** Alle 3 Min. „http://unknown/api/v1/data“. Das ist der
+  bekannte HomeWizard-P1-Eintrag aus dem Gielz-Paket (siehe
+  `gielz-upstream-issues.md`, Issue 1) und harmlos.
+- **Neu aufgefallen: nächtliches Weck-/Schlaf-Pendeln.**
+  - Zwischen 00:06 und 08:41 Uhr wechselte `storage_mode` 17 Mal von
+    Flash auf RAM und zurück, bei SOC 17–19 % bzw. unter dem
+    Ladevorrang.
+  - Ursache ist die dritte Weckbedingung aus dem Patch vom 26.09.
+    (`netzbezug_min_40s` > 100 W): Die nächtliche Grundlast pendelt um
+    66–200 W, und die Bedingung prüft den SOC nicht. Das hatte Dr.
+    Schmidt am 28.09. vorgemerkt, jetzt ist es belegt.
+  - Folgen für den Betrieb hat es keine, weil der Akku ohnehin nicht
+    entladen darf. Es sind aber unnötige Befehle ans Gerät.
+  - Vorgeschlagener Fix: Die Weckbedingung zusätzlich an „SOC über
+    Entlade-Untergrenze“ knüpfen. Noch nicht umgesetzt, Normen soll
+    entscheiden.
+
 ---
 
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
@@ -448,6 +502,37 @@ Geräteverhalten (Bypass-Lock nach SoC-Obergrenze) ist damit als
 firmwareseitiger Zendure-Fehler extern bestätigt, unabhängig von unserer
 HA-Konfiguration. Ein Support-Fall bei Zendure wurde entsprechend
 vorbereitet.
+
+**Offizielle Antwort des Zendure-Supports (29.09.2026).** Das Verhalten
+gehört laut dem zuständigen Team zur normalen Betriebslogik:
+- Erreicht der Akku den eingestellten SOC-Grenzwert, schaltet das
+  System per ARM-Befehl die DC-Seite ab, um den Ladezustand zu halten.
+- Erst wenn der SOC unter den Grenzwert fällt, wird DC wieder
+  eingeschaltet. Bis dahin läuft nur der Bypass. Der Akku kann dann
+  nicht entladen, unabhängig davon, was HA befiehlt.
+- Ein Defekt liegt laut Zendure nicht vor.
+- Die Entwicklung will prüfen, wie sich die Zeit zum Verlassen des
+  Bypass verkürzen lässt. Einen Termin nennt Zendure nicht.
+
+Damit ist die Ursache von Fehlerklasse 1 (Bypass-Hänger) vom Hersteller
+bestätigt, und zwar als Firmware-Logik, nicht als Fehler in HA oder im
+Gielz-Paket. Offen und beim Support nachgefragt:
+1. Wie weit muss der SOC unter den Grenzwert fallen, bis DC wieder
+   einschaltet?
+2. Lässt sich die DC-Abschaltung deaktivieren?
+3. Ist serverseitig noch eine HEMS-Zuordnung oder der alte 144-W-Zeitplan
+   aktiv?
+
+Folge für unsere Automatisierungen: Die 650→800-W-Anhebung bei
+„Charging Limit Reached“ wirkt nur, solange DC eingeschaltet ist. Dass
+das auch in dieser Phase vorkommt, zeigt der 29.09.:
+- Zwischen 12:03 und 14:25 Uhr (Status „Charging Limit Reached“, SOC 95 %)
+  hat das Gerät bei Lastspitzen mehrfach mit bis zu 800 W entladen: um
+  12:25, 13:45 und 14:00–14:05 Uhr.
+- Nach der Spitze um 13:45 fiel der SOC um 13:47 von 95 auf 94 %.
+
+Die Anhebung ist also nicht wirkungslos. Die DC-Abschaltung laut Zendure
+greift offenbar nicht die ganze Zeit.
 
 ---
 
@@ -504,3 +589,7 @@ Scharfschalten kalibriert werden müssen.
   bleibt offen (Zendure-Ticket). Das Flattern der Balkonheizung ist als
   Rückkopplung eingeordnet und behoben: Aus-Schwelle von −200 auf −50 W
   gesenkt, Zählung auf 13/14 korrigiert.
+- **Fassung 7 (29.09.2026):** Offizielle Zendure-Antwort zur
+  DC-Abschaltung am SOC-Grenzwert nachgetragen, dazu der Tages-Check
+  29.09. (Heizung: 1 Zyklus, 650/800 sauber, kein Hänger). Neu belegt ist
+  das nächtliche Weck-/Schlaf-Pendeln, ein Fix ist vorgeschlagen.
