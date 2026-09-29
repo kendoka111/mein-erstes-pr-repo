@@ -1,0 +1,80 @@
+# Stromzähler: Zählerstand 1.8.0 (Bezug) in HA fortschreiben (29.09.2026)
+#
+# Normens Vorgabe: kein Lesekopf am Zähler (EMH ED300L, RhönENERGIE Fulda,
+# Schrank "Obergeschoss"). Der Stand soll trotzdem in HA stehen und
+# selbstständig weiterzählen - als Grundlage für eine spätere
+# Nebenkosten-Übersicht (Strom, Wasser, Heizung ...). Einspeisung (2.8.0)
+# bewusst NICHT: keine Einspeisevergütung. Für eine spätere Bewertung einer
+# Akku-Erweiterung reicht die bereits vorhandene Einspeise-Messung
+# (Integrations-Helfer "Einspeisung kWh" aus dem Shelly Pro 3EM).
+#
+# Prinzip: abgelesener Stand + Netzbezug seit der Ablesung.
+# - input_number.stromzahler_ablesung_bezug (kWh, Eingabefeld): hier trägt
+#   Normen den abgelesenen Stand ein. Start: 21832 kWh (Foto 29.09. abends).
+# - input_number.stromzahler_basis_netzbezug (intern): Stand von
+#   sensor.netz_bezug_kwh im Moment der Ablesung. Wird ausschließlich von der
+#   Automatisierung unten gesetzt.
+# - input_datetime.stromzahler_ablesedatum (intern): Zeitpunkt der Ablesung.
+# - sensor.stromzahler_bezug_1_8_0 (Template-Helfer, UI, energy /
+#   total_increasing, kWh):
+#     ablesung + max(0, netz_bezug_kwh - basis), auf 0,1 kWh gerundet;
+#     "unknown", solange Ablesung/Basis fehlen oder netz_bezug_kwh nicht
+#     lesbar ist (kein Rücksprung, der die Langzeitstatistik als Zähler-Reset
+#     werten würde).
+#
+# Quelle des Netzbezugs: sensor.netz_bezug_kwh ist ein bestehender
+# Integrations-Helfer (Riemann) über sensor.netz_bezug_watt =
+# max(0, Shelly Pro 3EM Phasen A+B+C + Shelly Plug Waschmaschine + Shelly
+# Plug Trockner). Die beiden Plugs hängen offenbar auf einem Stromkreis,
+# den der 3EM nicht erfasst. Die Saldierung über alle Phasen entspricht der
+# Arbeitsweise des ED300L (saldierender Drehstromzähler).
+#
+# Grenzen: Der Wert ist eine Hochrechnung, keine Messung des Zählers selbst.
+# Messabweichung des Shelly und die Riemann-Integration lassen ihn langsam
+# driften; der Zähler selbst zeigt nur ganze kWh. Deshalb ab und zu neu
+# ablesen und eintragen - die Automatisierung setzt die Basis dann neu und
+# die Drift ist wieder bei null. Vergleich alter Hochrechnung und neuer
+# Ablesung zeigt nebenbei, wie genau der Shelly misst.
+#
+# Live eingerichtet 29.09. um 21:01:53 Uhr: Ablesung 21832 kWh, Basis
+# netz_bezug_kwh 291,906 kWh; Sensor zeigte direkt 21832,0 kWh.
+
+- id: stromzaehler_ablesung_kalibrieren
+  alias: "Stromzähler: Ablesung übernehmen"
+  description: >-
+    Wird ein neuer Zählerstand in input_number.stromzahler_ablesung_bezug
+    eingetragen, merkt sich diese Automatisierung den aktuellen Stand von
+    sensor.netz_bezug_kwh (Netzbezug aus Shelly Pro 3EM + Waschmaschine +
+    Trockner) als Basis und das Ablesedatum. sensor.stromzahler_bezug_1_8_0
+    zählt ab dann den Netzbezug seit der Ablesung auf den abgelesenen Stand
+    drauf.
+  triggers:
+    - trigger: state
+      entity_id: input_number.stromzahler_ablesung_bezug
+      not_from: [unavailable, unknown]
+      not_to: [unavailable, unknown]
+  conditions:
+    - condition: numeric_state
+      entity_id: sensor.netz_bezug_kwh
+      above: 0
+  actions:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.stromzahler_basis_netzbezug
+      data:
+        value: "{{ states('sensor.netz_bezug_kwh') | float }}"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.stromzahler_ablesedatum
+      data:
+        datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+  mode: single
+
+# Template-Helfer (per UI-Konfigurationsfluss angelegt, hier nur zur Doku):
+#   Name: Stromzähler Bezug 1.8.0 -> sensor.stromzahler_bezug_1_8_0
+#   Einheit kWh, device_class energy, state_class total_increasing
+#   State:
+#     {% set a = states('input_number.stromzahler_ablesung_bezug') | float(0) %}
+#     {% set b = states('input_number.stromzahler_basis_netzbezug') | float(0) %}
+#     {% set n = states('sensor.netz_bezug_kwh') | float(none) %}
+#     {% if a > 0 and b > 0 and n is not none %}{{ (a + max(0, n - b)) | round(1) }}{% else %}{{ none }}{% endif %}
