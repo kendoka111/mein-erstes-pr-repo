@@ -25,9 +25,11 @@
 # Quelle des Netzbezugs: sensor.netz_bezug_kwh ist ein bestehender
 # Integrations-Helfer (Riemann) über sensor.netz_bezug_watt =
 # max(0, Shelly Pro 3EM Phasen A+B+C + Shelly Plug Waschmaschine + Shelly
-# Plug Trockner). Die beiden Plugs hängen offenbar auf einem Stromkreis,
-# den der 3EM nicht erfasst. Die Saldierung über alle Phasen entspricht der
-# Arbeitsweise des ED300L (saldierender Drehstromzähler).
+# Plug Trockner). Laut Normen sind Waschmaschine und Trockner kein eigener
+# Stromkreis. Sie sind aber hinter dem Zähler und vor dem Messpunkt des 3EM
+# angeschlossen. Der 3EM sieht sie also nicht, der Zähler zählt sie mit,
+# deshalb werden sie aufaddiert. Die Saldierung über alle Phasen entspricht
+# der Arbeitsweise des ED300L (saldierender Drehstromzähler).
 #
 # Grenzen: Der Wert ist eine Hochrechnung, keine Messung des Zählers selbst.
 # Messabweichung des Shelly und die Riemann-Integration lassen ihn langsam
