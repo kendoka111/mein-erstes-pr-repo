@@ -468,18 +468,48 @@ abends.
   bekannte HomeWizard-P1-Eintrag aus dem Gielz-Paket (siehe
   `gielz-upstream-issues.md`, Issue 1) und harmlos.
 - **Neu aufgefallen: nächtliches Weck-/Schlaf-Pendeln.**
-  - Zwischen 00:06 und 08:41 Uhr wechselte `storage_mode` 17 Mal von
-    Flash auf RAM und zurück, bei SOC 17–19 % bzw. unter dem
-    Ladevorrang.
-  - Ursache ist die dritte Weckbedingung aus dem Patch vom 26.09.
-    (`netzbezug_min_40s` > 100 W): Die nächtliche Grundlast pendelt um
-    66–200 W, und die Bedingung prüft den SOC nicht. Das hatte Dr.
-    Schmidt am 28.09. vorgemerkt, jetzt ist es belegt.
-  - Folgen für den Betrieb hat es keine, weil der Akku ohnehin nicht
-    entladen darf. Es sind aber unnötige Befehle ans Gerät.
-  - Vorgeschlagener Fix: Die Weckbedingung zusätzlich an „SOC über
-    Entlade-Untergrenze“ knüpfen. Noch nicht umgesetzt, Normen soll
-    entscheiden.
+  - Zwischen 00:06 und 09:05 Uhr wechselte `storage_mode` 18 Mal von
+    Flash auf RAM und nach Standby-Ablauf zurück.
+  - Der Modus stand die ganze Zeit auf „Smart Charge Only“ (Ladevorrang
+    seit 28.09., 19:29:34 bis 29.09., 09:07:07).
+  - Der SOC lag bei 18 % (17 % nur 49 s um 03:45), ab 08:08 stieg er.
+    Die letzten drei Weckvorgänge lagen bei 20, 29 und 39 %.
+  - Ursache ist jedes Mal die dritte Weckbedingung aus dem Patch vom
+    26.09. (`netzbezug_min_40s` > 100 W). Sie griff 3–5 s nach dem
+    Überschreiten der 100 W, während `zendure_power` bei −0,0 W lag
+    (Dr.-Schmidt-Auswertung). Die nächtliche Grundlast pendelt um
+    66–200 W, und die Bedingung prüfte weder SOC noch Modus.
+  - Folgen für den Betrieb hatte es keine, weil die Entladung gesperrt
+    war. Es waren aber unnötige Befehle ans Gerät.
+
+**Fix 29.09. abends (von Normen freigegeben, Dr.-Schmidt-Abnahme mit
+Auflagen):**
+- In `automation.zendure_zensdk_gielz_global` wurde nur
+  `actions[1].choose[0].conditions[2].conditions[2]` geändert. Diese
+  Weckbedingung weckt jetzt nur noch, wenn zusätzlich zwei Dinge
+  gelten:
+  - `sensor.zendure_total_state_of_charge` liegt über
+    `sensor.zendure_minimum_state_of_charge`. Das ist bewusst die
+    Geräte-Entity, nicht der `input_number` (Auflage 1), weil die
+    Gielz-Entladesperre und der SOC-Schutz genau gegen diese Entity
+    vergleichen.
+  - Der Modus ist nicht „Smart Charge Only“. Diese Bedingung allein
+    hätte alle 18 Weckvorgänge verhindert. Die SOC-Bedingung allein
+    hätte 3 davon durchgelassen (20, 29 und 39 %).
+- Hash vorher `24cba37c9f8593ab`, nachher `6a78d0e34d691367`. Per Diff
+  bestätigt, dass sich sonst nichts geändert hat.
+- **SOC-Schutz unberührt:** choose[2] prüft den `storage_mode` nicht.
+  Am 26.09. lud er belegt aus dem Flash-Modus heraus mit 1200 W (06:00).
+  Er greift jetzt sogar direkter, weil choose[0] bei SOC ≤ min den
+  5-s-Takt nicht mehr belegt.
+- **Kein Rückfall in den Henne-Ei-Deadlock:** Bei Smart Matching und
+  SOC über min ist die Bedingung logisch identisch mit vorher.
+- **Abnahmekriterium für die Nacht 29./30.09.:**
+  - Im Modus „Smart Charge Only“ kein Wechsel Flash→RAM, außer wenige
+    Sekunden nach einer Schutzladung (`set_charge_power` = 1200).
+    Erwartet: höchstens 1 statt 18 Wechsel.
+  - Nach der Ladevorrang-Freigabe auf „Smart Matching“ wird geweckt,
+    sobald `min_40s` über 100 W liegt, spätestens nach 10 s.
 
 ---
 
@@ -592,4 +622,6 @@ Scharfschalten kalibriert werden müssen.
 - **Fassung 7 (29.09.2026):** Offizielle Zendure-Antwort zur
   DC-Abschaltung am SOC-Grenzwert nachgetragen, dazu der Tages-Check
   29.09. (Heizung: 1 Zyklus, 650/800 sauber, kein Hänger). Neu belegt ist
-  das nächtliche Weck-/Schlaf-Pendeln, ein Fix ist vorgeschlagen.
+  das nächtliche Weck-/Schlaf-Pendeln. Noch am selben Abend behoben:
+  Die Weckbedingung ist an SOC > Geräte-Min-SOC und an einen Modus
+  ungleich „Smart Charge Only“ gebunden, Hash jetzt `6a78d0e34d691367`.
