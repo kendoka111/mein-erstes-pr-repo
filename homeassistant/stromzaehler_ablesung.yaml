@@ -38,6 +38,10 @@
 # die Drift ist wieder bei null. Vergleich alter Hochrechnung und neuer
 # Ablesung zeigt nebenbei, wie genau der Shelly misst.
 #
+# Referenzwert laut Normen: 29.09.2025 (genau ein Jahr vorher) 19389 kWh.
+# Jahresbezug 29.09.2025-29.09.2026 also 21832 - 19389 = 2443 kWh
+# (Mittel ~6,7 kWh/Tag, ~204 kWh/Monat), vor dem E-Auto.
+#
 # Live eingerichtet 29.09. um 21:01:53 Uhr: Ablesung 21832 kWh, Basis
 # netz_bezug_kwh 291,906 kWh; Sensor zeigte direkt 21832,0 kWh.
 
