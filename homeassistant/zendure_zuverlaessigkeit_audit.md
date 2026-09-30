@@ -511,6 +511,38 @@ Auflagen):**
   - Nach der Ladevorrang-Freigabe auf „Smart Matching“ wird geweckt,
     sobald `min_40s` über 100 W liegt, spätestens nach 10 s.
 
+**Abnahme Nacht 29./30.09. (Check 30.09., 12:00 Uhr): bestanden.**
+- **Nachtruhe:**
+  - Das Gerät schlief um 23:02:12 ein. Bis dahin war es seit dem Abend in
+    RAM, weil die Abendlast über 100 W die Schlaf-Sperre `max_5min` hielt.
+  - Im Modus „Smart Charge Only“ gab es danach genau **einen** Wechsel
+    Flash→RAM, um 05:30:52 (statt 18 in der Vornacht). Er kam direkt nach
+    der Schutzladung: SOC 17 % um 05:30:37, `set_charge_power` 1200 W um
+    05:30:42, `charging_mode` „Charging“ um 05:30:48, noch im
+    Flash-Modus.
+  - Um 05:56:42 wieder Flash. Damit ist erneut belegt, dass der SOC-Schutz
+    ohne Wecken aus Flash heraus lädt.
+- **Freigabe nach dem Ladevorrang:**
+  - SOC 40 % und Wechsel auf „Smart Matching“ um 10:58:09. Der Netzbezug
+    lag danach nur bei ~65 W, also unter der 100-W-Schwelle. `min_40s` kam
+    deshalb nie über 100 W, und die neue Weckbedingung war in diesem Fall
+    gar nicht gefragt.
+  - Um 11:00:03 sprang der Bezug auf 188 W. Um 11:00:10 lief die
+    Entladung (−144 W, sofort danach −200 W), und das noch im
+    Flash-Modus: Der Gielz-Startzweig von Smart Matching prüft den
+    `storage_mode` nicht.
+  - Um 11:00:16 folgte RAM über OR[1] (`zendure_power` < 0). Ab 11:00:21
+    regelte das Netz auf −5 bis +1 W.
+  - Reaktionszeit Bedarf→Entladung: **7 s**. Am 28.09. waren es noch 42 s
+    und mehr.
+- **Balkonheizung und 650/800:** Nicht angesprochen. Der Akku war bis
+  12:00 nicht voll (SOC 60 %), die Heizung blieb aus, `max_discharge_power`
+  stand durchgehend auf 650 W. Nichts zu beanstanden.
+- **Verbindung:** Die Zendure-Sensoren waren 5-mal für je 1 s nicht
+  verfügbar (05:13, 06:59, 07:29, 08:28, 08:52). Das ist öfter als an den
+  Vortagen, blieb aber ohne Folgen. Beim myStrom gab es 3 Aussetzer von je
+  20 s (21:10, 05:44, 06:22). Weiter beobachten.
+
 ---
 
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
