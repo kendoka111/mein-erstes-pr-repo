@@ -613,11 +613,23 @@ Das Problem ist systematisch, kein Einzelfall (Dr.-Schmidt-Auswertung):
    `sensor.einspeisung_kwh`, Stunde 2026-10-02T08:00Z: **−4289,84 Wh**.
    Tageswert 02.10. danach 0,234 kWh statt 4,52 kWh.
 
-**Noch offen (Entscheidung Normen):**
-- Korrektur der Vortage nach Dr. Schmidts Liste „Stufe A“: 13 weitere
-  Stunden, zusammen ca. −6,9 kWh, größte Werte 19.09. −2914 Wh und 29.08.
-  −1400 Wh.
-- Optional eine stundenweise Vollkorrektur.
+3. Vortage korrigiert (02.10. abends, von Normen freigegeben): die
+   übrigen 13 Stunden der Dr.-Schmidt-Liste „Stufe A“, zusammen
+   −6942,05 Wh. Darunter 19.09. 09 Uhr (−2914,52), 29.08. 07 Uhr
+   (−1400,22) und 25.09. 10 Uhr (−893,28). Jede Stunde zeigt danach
+   genau den nach links-Riemann erwarteten Wert, z. B. 25.09. 10 Uhr
+   432,16 Wh und 19.09. 09 Uhr 9,94 Wh. Insgesamt sind damit
+   −11.231,9 Wh aus `sensor.einspeisung_kwh` entfernt.
+
+**Bewusst nicht korrigiert:**
+- Ca. +3,97 kWh systematischer Trapez-Überschuss, verteilt auf viele
+  kleine Stunden (je < 100 Wh).
+- Beim Bezug ca. +8,0 kWh seit 25.08., ohne Einzelspitze.
+- Der Zeitraum 26.08. 15 Uhr bis 28.08. 09 Uhr (damals andere Quelle,
+  nicht prüfbar).
+
+Eine stundenweise Vollkorrektur wäre möglich (CSV im Scratchpad), auf
+Wunsch.
 
 **Folgewirkungen:**
 - `sensor.stromzahler_bezug_1_8_0` liest den Zustand von `netz_bezug_kwh`
