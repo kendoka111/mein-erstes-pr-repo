@@ -543,6 +543,101 @@ Auflagen):**
   Vortagen, blieb aber ohne Folgen. Beim myStrom gab es 3 Aussetzer von je
   20 s (21:10, 05:44, 06:22). Weiter beobachten.
 
+
+---
+
+## SOC-Schutzladung nur noch 11–15 Uhr (02.10.2026)
+
+Normens Wunsch: Der Gielz-SOC-Schutz (`actions[1].choose[2]` „Charging to
+minimum SOC (protection)“) soll nachts nicht mehr mit 1200 W aus dem Netz
+nachladen, sondern erst mittags. Bisher lag jede Unterschreitung unter
+18 % nachts oder früh morgens (07:16, 06:00, 06:23, 06:27, 03:45, 05:30
+und 03:46 Uhr). Jede löste ca. 50 s Netzladung mit 1200 W aus, also
+15–30 Wh.
+
+**Dr.-Schmidt-Prüfung 01.10.: ZURÜCK für die naive Variante.** Die
+vorhandene, deaktivierte Bedingung (sun: sunrise +2 h bis sunset −2 h ODER
+`home_energy_meter_power < start_charging_at`) einfach zu aktivieren,
+hätte auch den Stopp-Befehl (0 W) zeitgegatet. In „Smart Charge Only“ und
+„Smart Matching“ stoppt der Gielz-Balancing-Zweig trotzdem. In „Standby“
+und „Smart Discharge Only“ stoppt aber niemand. Eine angefangene
+Schutzladung liefe dort bis `socSet` 95 %, also rund 1,8 kWh.
+
+**Umsetzung 02.10. (Dr.-Schmidt-Freigabe mit Auflagen, Variante B):**
+- `conditions[2]` ist jetzt ein OR aus zwei Teilen:
+  - **Start:** SOC < Geräte-Minimum UND `condition: time` 11:00–15:00.
+  - **Stopp:** SOC == Minimum UND `set_charge_power` == 1200. Bewusst
+    **nicht** zeitgegatet, damit eine laufende Ladung in allen sieben
+    Modi des Zweigs bei 18 % endet.
+- Die deaktivierte Bedingung `conditions[4]` wurde ersatzlos gelöscht.
+- Die Einspeise-Hälfte (> 300 W Einspeisung startet die Ladung) ist auf
+  Normens Wunsch weggefallen. Laut Dr. Schmidt war sie praktisch toter
+  Code und hätte, wenn sie doch einmal gegriffen hätte, Netzstrom trotz
+  Überschuss gezogen.
+- Hash vorher `6a78d0e34d691367`, nachher `89023c6c06b06183`. Per Diff
+  bestätigt: Außer diesen zwei Stellen ist nichts verändert.
+- **Erwartung:**
+  - Nachts sinkt der SOC auf ca. 17 %, im Winter nach einem Ladeende
+    kurz vor 15 Uhr schlimmstenfalls auf ca. 15 %. Die Entladung bleibt
+    durch das Geräte-Minimum 18 % gesperrt.
+  - An PV-Tagen hebt die Sonne den SOC vor 11 Uhr ohne Netzladung über
+    18 %. An dunklen Tagen startet der Schutz um 11 Uhr.
+- **Abnahmekriterium für die nächsten Nächte:** Außerhalb 11–15 Uhr kein
+  `set_charge_power` 1200, außer einem Stopp-Befehl mit 0 W.
+- **Achtung:** Ein Gielz-Update überschreibt diesen Patch, genau wie die
+  Patches vom 26., 28. und 29.09.
+
+## Energie-Dashboard: Einspeisung um Faktor ~2,5 zu hoch (02.10.2026)
+
+Am 02.10. zeigte das Dashboard 4,52 kWh Einspeisung (tatsächlich ca.
+0,12–0,23 kWh), Autarkie 0 % und Eigenverbrauchsquote 5,8 %.
+
+**Ursache:** Die Integrations-Helfer `sensor.einspeisung_kwh` (Wh) und
+`sensor.netz_bezug_kwh` (kWh) rechneten mit der Methode **trapezoidal**.
+Ihre Quellen sind Templates, die bei unverändertem Wert keinen Zustand
+schreiben. Trapez interpoliert deshalb jede Nullphase linear bis zum
+ersten Wert ungleich 0. Am 02.10.: Die Einspeisung stand 18,165 h auf 0
+(01.10. 15:51 bis 02.10. 10:01), dann 467,9 W. Das ergibt
+(0 + 467,9)/2 × 18,165 h = **+4249,67 Wh** auf einen Schlag.
+
+Das Problem ist systematisch, kein Einzelfall (Dr.-Schmidt-Auswertung):
+- Seit 28.08. weist die Statistik 25,45 kWh Einspeisung aus, real waren
+  es ca. 10,25 kWh (+148 %).
+- Beim Bezug sind es +8,0 kWh (+3,9 %) seit 25.08.
+
+**Behebung 02.10. ca. 20:50 Uhr:**
+1. Beide Helfer per Options-Flow auf Methode **left** umgestellt.
+   Entity, Statistik-ID, Einheit und Zählerstand blieben erhalten; es gab
+   keinen Sprung (Einspeisung blieb bei 26214,597 Wh).
+2. Statistik-Korrektur `recorder/adjust_sum_statistics` für
+   `sensor.einspeisung_kwh`, Stunde 2026-10-02T08:00Z: **−4289,84 Wh**.
+   Tageswert 02.10. danach 0,234 kWh statt 4,52 kWh.
+
+**Noch offen (Entscheidung Normen):**
+- Korrektur der Vortage nach Dr. Schmidts Liste „Stufe A“: 13 weitere
+  Stunden, zusammen ca. −6,9 kWh, größte Werte 19.09. −2914 Wh und 29.08.
+  −1400 Wh.
+- Optional eine stundenweise Vollkorrektur.
+
+**Folgewirkungen:**
+- `sensor.stromzahler_bezug_1_8_0` liest den Zustand von `netz_bezug_kwh`
+  und liegt seit der Basis vom 29.09. um ca. +0,27 kWh zu hoch. Das wird
+  bei der nächsten Ablesung neu kalibriert, nicht nachträglich verbogen.
+- „Einspeisung heute“ (Utility Meter) wurde bewusst **nicht** kalibriert,
+  weil eine Absenkung als Reset gewertet würde. Der Wert ist bis
+  Mitternacht falsch und korrigiert sich dann selbst.
+- `sensor.zendure_eigenverbrauchsquote`: Die vergangenen Tageswerte
+  bleiben verfälscht.
+
+**Energiebilanz 02.10. (korrigiert, Dr. Schmidt):**
+- Bilanz: PV 4,80 + Bezug 4,25 + Akku raus 1,80 − Akku rein 2,16 −
+  Einspeisung 0,12 = **Home ca. 8,6 kWh**, plausibel.
+- Darin enthalten sind Waschmaschine 0,70 kWh, Trockner 0,76 kWh und
+  18–20 Uhr allein 2,9 kWh.
+- Die Zendure-Zähler stimmen mit den Leistungsmitteln überein: PV =
+  DC-Eingang, `energy_import` = Akku-Ladung, `energy_export` = AC aus dem
+  Akku. Es wird nichts doppelt gezählt.
+
 ---
 
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
@@ -657,3 +752,7 @@ Scharfschalten kalibriert werden müssen.
   das nächtliche Weck-/Schlaf-Pendeln. Noch am selben Abend behoben:
   Die Weckbedingung ist an SOC > Geräte-Min-SOC und an einen Modus
   ungleich „Smart Charge Only“ gebunden, Hash jetzt `6a78d0e34d691367`.
+- **Fassung 8 (02.10.2026):** SOC-Schutzladung startet nur noch 11–15 Uhr,
+  der Stopp ist ungegatet (Hash jetzt `89023c6c06b06183`). Trapez-Fehler
+  in den Netz-Energiezählern gefunden, beide Helfer auf „left“ umgestellt,
+  der Tagesfehler 02.10. aus der Statistik entfernt.

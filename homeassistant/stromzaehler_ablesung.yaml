@@ -38,6 +38,12 @@
 # die Drift ist wieder bei null. Vergleich alter Hochrechnung und neuer
 # Ablesung zeigt nebenbei, wie genau der Shelly misst.
 #
+# Nachtrag 02.10.: sensor.netz_bezug_kwh rechnete bis 02.10. ca. 20:50 Uhr
+# mit Methode "trapezoidal" und zählte dadurch leicht zu viel. Seit der
+# Basis vom 29.09. sind das ca. +0,27 kWh. Seitdem Methode "left"
+# (siehe zendure_zuverlaessigkeit_audit.md). Bei der nächsten Ablesung wird
+# neu kalibriert, die Basis wird nicht nachträglich verändert.
+#
 # Referenzwert laut Normen: 29.09.2025 (genau ein Jahr vorher) 19389 kWh.
 # Jahresbezug 29.09.2025-29.09.2026 also 21832 - 19389 = 2443 kWh
 # (Mittel ~6,7 kWh/Tag, ~204 kWh/Monat), vor dem E-Auto.
