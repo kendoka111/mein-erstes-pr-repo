@@ -587,6 +587,22 @@ Schutzladung liefe dort bis `socSet` 95 %, also rund 1,8 kWh.
 - **Achtung:** Ein Gielz-Update überschreibt diesen Patch, genau wie die
   Patches vom 26., 28. und 29.09.
 
+**Abnahme 03.10. (Check 15:30 Uhr): bestanden.**
+- Im ganzen Zeitraum 02.10. 21:00 bis 03.10. 15:30 wurde kein
+  `set_charge_power` 1200 gesetzt, auch keine Schutzladung außerhalb des
+  Fensters.
+- Der SOC fiel um 04:18 auf 17 %. Um 09:10 hob ihn die PV ohne
+  Ladebefehl wieder auf 18 %, also vor dem Fenster und ohne Netzladung.
+  Genau so war es gewünscht.
+- Nachtruhe: Das Gerät schlief um 22:38 ein, danach gab es bis zur
+  Ladevorrang-Freigabe (12:35:21, SOC 40 %) keinen Wechsel Flash→RAM.
+  RAM folgte 5 s nach der Freigabe.
+- Die Ladebefehle 194 W und 191 W um 13:21 und 13:23 kamen aus dem
+  normalen Smart-Matching-Ladezweig, nicht vom Schutz.
+- Nebenbefund: Die Zendure-Sensoren waren mehrfach kurz `unavailable`,
+  zwischen 13:27 und 13:38 allein 5-mal für je ca. 1 s. Folgen hatte das
+  keine, weiter beobachten.
+
 ## Energie-Dashboard: Einspeisung um Faktor ~2,5 zu hoch (02.10.2026)
 
 Am 02.10. zeigte das Dashboard 4,52 kWh Einspeisung (tatsächlich ca.
@@ -640,6 +656,14 @@ Wunsch.
   Mitternacht falsch und korrigiert sich dann selbst.
 - `sensor.zendure_eigenverbrauchsquote`: Die vergangenen Tageswerte
   bleiben verfälscht.
+
+**Abnahme 03.10. (Methode „left“): bestanden.** Die Statistik-Stundenwerte
+entsprechen jetzt dem Leistungsmittel × 1 h:
+- Einspeisung 12–13 Uhr: 9,53 Wh bei einem Mittel von 9,57 W.
+- Einspeisung 13–14 Uhr: 33,26 Wh bei einem Mittel von 33,22 W.
+- Bezug 11–12 Uhr: 2,4226 kWh bei einem Mittel von 2423,3 W.
+- Die erste Einspeisung des Tages kam um 12 Uhr nach rund 16 h auf 0 W
+  und erzeugte keinen Sprung mehr.
 
 **Energiebilanz 02.10. (korrigiert, Dr. Schmidt):**
 - Bilanz: PV 4,80 + Bezug 4,25 + Akku raus 1,80 − Akku rein 2,16 −
