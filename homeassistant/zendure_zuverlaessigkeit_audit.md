@@ -83,6 +83,42 @@ NICHT gesondert und meldet auch dann, wenn der Modus bewusst manuell auf
 gerade nicht automatisch mitläuft, ist erwünscht. Kann bei Bedarf später
 geändert werden, ist kein Blocker für den Bau.
 
+
+**Erneuter Bypass-Hänger 04.10.2026 (ca. 14:28–15:18 Uhr):**
+
+Ablauf:
+- 11:36 Uhr: Akku voll (SOC 95 %, „Charging Limit Reached“),
+  `max_discharge_power` korrekt auf 800 W.
+- Bis ca. 13:28 Uhr entlud das Gerät bei Lastspitzen noch normal, mit bis
+  zu −800 W.
+- Ab ca. 14:28 Uhr schickte Gielz durchgehend Entladebefehle
+  (`set_discharge_power` 80–160 W, zwischendurch 334 W). Das Gerät
+  ignorierte alle: `zendure_power` blieb bei 0,0 W, `charging_mode` auf
+  „Standby“, das Gerät war in RAM.
+- Netzbezug ca. 50 min lang 100–190 W.
+- Im HA-Log keine `rest_command`-Fehler: Die Befehle wurden angenommen,
+  aber nicht umgesetzt.
+- SOC 94 %, also bereits 1 % unter dem Ladelimit, Status weiterhin
+  „Charging Limit Reached“. Das passt zur Zendure-Aussage (DC-Abschaltung
+  am SOC-Limit) und zeigt: 1 % unter dem Limit reicht **nicht**, damit DC
+  wieder einschaltet.
+- Wächter „Akku entlädt nicht trotz Bedarf“ meldete korrekt um 15:04 und
+  15:16 Uhr. Er meldet aber nur und greift nicht ein.
+
+Gelöst durch Normen von Hand, mit dem bekannten Workaround vom 06.09.
+(Moduswechsel über einen anderen Modus):
+- 15:17:43 Smart Discharge Only
+- 15:17:59 Quick Discharge (sendet `outputLimit` 800)
+- 15:18:11 Smart Discharge Only
+- 15:18:18 Smart Matching
+- Ergebnis: 15:18:28 „Discharging“ mit −238 W, danach −330 W. Netz wieder
+  ausgeregelt.
+
+Folgerung: Der Workaround ist jetzt zweimal belegt (06.09. und 04.10.). Ein
+automatischer Eingriff des Wächters („Fix 2“, bisher zurückgestellt) wäre
+der nächste Schritt; Entscheidung Normen und Prüfung durch Dr. Schmidt
+stehen aus.
+
 ---
 
 ## Fehlerklasse 2 — Stille PV-Export-Deckelung ("Netzeinspeisung verboten")
