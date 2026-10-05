@@ -158,48 +158,88 @@
 # Netzheizen. Nach Rücksprache mit Normen soll die Automatisierung das
 # sofort korrigieren (Panel aus, da kein Überschuss).
 
+# Nachtrag 05.10. - Einschalten schon ab 260 W Einspeisung (Normens Wunsch:
+# lieber 30-50 W Netzbezug als 250 W verschenken). Fassung exakt nach
+# Dr.-Schmidt-Empfehlung (Variante B, FREIGABE MIT AUFLAGEN):
+# - an: Einspeisung über 260 W, 5 Min. bestätigt (vorher 300 W / 2 Min.).
+#   Mit Panel (~295 W) bleibt der Netzbezug danach bei höchstens ~35 W.
+# - aus: Netzbezug über +50 W, 2 Min. bestätigt (vorher Einspeisung unter
+#   50 W / 1 Min.).
+# - NEU aus: Trigger zendure_speist (sensor.zendure_power unter -50 W, 1 Min.).
+#   Grund: Der bisherige Akku-Schutz ergab sich nebenbei aus der -50-W-
+#   Schwelle (Gielz regelt bei Akku-Abgabe auf ca. -5 W). Mit +50 W greift
+#   das nicht mehr; ohne neuen Trigger hätte das Panel z. B. am 04.10.
+#   15:25-20:30 Uhr am Akku gehangen. ON-Zweig zusätzlich: zendure_power
+#   über -50 W.
+# - Wichtig: sensor.zendure_power ist die Ausgangsleistung des Geräts ins Haus
+#   (aus PV und/oder Akku), NICHT die Akkuleistung. Beleg 05.10. 09:27-11:02:
+#   "Discharging" mit -69 bis -200 W, gleichzeitig SOC 43 -> 95 %. Im Bypass
+#   am SOC-Limit steht er auf 0 W; > 50 W Abgabe bei laufendem Panel heißt
+#   also: Gerät hat den Bypass verlassen, Akku beteiligt.
+# - Simulation Dr. Schmidt (6 Tage mit "Charging Limit Reached", validiert an
+#   16 realen Schaltvorgängen auf +-1 s), gegenüber 300/-50:
+#   Einschaltungen 24 -> 14 (je Kalendertag 2,5 -> 1,5), Kurzzyklen unter
+#   10 Min. 13 -> 4, Heizenergie +0,21 kWh, Netzbezug +0,063 kWh (ca. 2 ct),
+#   Einspeisung -0,15 kWh. Der Gewinn liegt vor allem im ruhigeren Schalten.
+# - Zugehörige Auflage umgesetzt: Die Bypass-Autolösung
+#   (zendure_bypass_autoloesung.yaml) greift nur noch bei Panel aus, sonst
+#   hielte sie den Panelstrom für echten Bedarf (3 Fehlauslösungen in den
+#   Daten).
+# - Live eingespielt 05.10. ca. 14:29 Uhr, config_hash vorher
+#   7d6da0c851ac9711, nachher 6ad90a6d8d78dd02.
+# - Offen: Abnahme am ersten Tag mit "Charging Limit Reached" (Einschalten
+#   nur über ueberschuss_an/soc_wechsel, Bezug bei laufendem Panel bis auf
+#   Spitzen unter 2 Min. nicht über +50 W, kein Lauf der Bypass-Autolösung
+#   bei laufendem Panel, zendure_speist nur bei echter Geräteabgabe).
+
 - id: balkon_heizung_ueberschuss
   alias: "Balkonheizung: PV-Überschuss"
-  description: >
-    Schaltet die Balkonheizung (switch.mystrom_device) ein, solange die
-    Zendure-Batterie voll ist (sensor.zendure_soc_limit_status ==
-    "Charging Limit Reached") UND das Haus dabei mehr als 300 W ins Netz
-    einspeist (sensor.home_energy_meter_power < -300, 2 Min. bestätigt) -
-    also echter, ungenutzter PV-Überschuss. Schaltet AUSSCHLIESSLICH über
-    die Einspeisung wieder aus, sobald diese unter 50 W fällt
-    (home_energy_meter_power > -50, 1 Min. bestätigt) - bewusst OHNE
-    Batterie-voll-Bedingung beim Ausschalten (Normens explizite Vorgabe:
-    die Bedingung gilt nur fürs Einschalten, nicht fürs Ausschalten).
-    Seit 28.09. abends 300/50 statt 300/200: der größere Abstand verhindert
-    weitgehend, dass das Panel (~295 W) sein eigenes Ausschalten auslöst.
-    Deckt der Akku das Panel, hält die Gielz-Regelung das Netz bei ca.
-    -5 W - das liegt über -50 W, das Panel geht also auch dann aus.
-    Seit 01.10.: Beide Zweige schalten und melden nur noch, wenn sich der
-    Zustand wirklich ändert (ON-Zweig nur bei Panel aus, OFF-Zweig nur bei
-    Panel an).
-    input_boolean.balkonheizung_automatik_aktiv als manueller
-    Vorrang-Schalter: bei Aus fasst diese Automatisierung den Schalter
-    nicht an. Sonnenuntergang als zusätzlicher Rückfallschutz im
-    OFF-Zweig (Nacht schaltet immer aus, unabhängig vom Momentanwert).
-    condition:trigger-Gates auf beiden Zweigen (Dr.-Schmidt-Fix)
-    verhindern ein Schalten über einen nicht-debounced Trigger während
-    einer Rauschspitze. Seit 28.09. darf resync nur noch im OFF-Zweig
-    mitschalten (nach real beobachtetem Flatter-Fenster am 27.09.,
-    12:48-13:26 Uhr) - der ON-Zweig springt nur noch über die zwei
-    tatsächlich debounced Trigger an.
+  description: >-
+    Schaltet die Balkonheizung (switch.mystrom_device, ca. 295 W) ein, wenn die
+    Zendure-Batterie voll ist (sensor.zendure_soc_limit_status = "Charging Limit
+    Reached"), das Zendure-Gerät nichts ins Haus abgibt (sensor.zendure_power
+    über -50 W) und das Haus mehr als 260 W ins Netz einspeist
+    (sensor.home_energy_meter_power unter -260 W, 5 Min. bestätigt). Nach dem
+    Einschalten bezieht das Haus damit höchstens etwa 35 W aus dem Netz.
+    Ausgeschaltet wird, wenn der Netzbezug über 50 W steigt (2 Min. bestätigt)
+    oder wenn das Zendure-Gerät Strom ins Haus abgibt (sensor.zendure_power
+    unter -50 W, 1 Min. bestätigt). Normens Vorgabe vom 05.10.: lieber 30 bis
+    50 W Netzbezug als 250 W Einspeisung verschenken (keine Vergütung,
+    Strompreis 0,30 EUR/kWh). Der zweite Ausschaltgrund ist der Akku-Schutz:
+    Verlässt das Gerät den Bypass (Gielz-Entladestart mit outputLimit über der
+    PV, Quick Discharge der Bypass-Autolösung, SOC unter 93 %), regelt Gielz
+    das Netz auf etwa -5 W. Die 50-W-Schwelle greift dann nicht mehr, ohne den
+    zweiten Grund würde der Akku das Panel speisen. sensor.zendure_power ist
+    die Ausgangsleistung des Geräts ins Haus (negativ = Abgabe aus PV und/oder
+    Akku), nicht die Akkuleistung; im Bypass am SOC-Limit steht er auf 0 W.
+    Bis 05.10. galt: an unter -300 W (2 Min.), aus über -50 W (1 Min.); der
+    Akku-Schutz ergab sich damals daraus, dass -5 W über -50 W liegt.
+    Ausschalten bewusst ohne Batterie-voll-Bedingung (Normens Vorgabe vom
+    26.09.). input_boolean.balkonheizung_automatik_aktiv als manueller
+    Vorrang-Schalter: bei Aus fasst diese Automatisierung den Schalter nicht
+    an. Sonnenuntergang als Rückfallschutz im OFF-Zweig (nachts immer aus).
+    condition:trigger-Gates verhindern Schalten über nicht entprellte Trigger;
+    resync darf nur im OFF-Zweig schalten (seit 28.09.). Seit 01.10. schalten
+    und melden beide Zweige nur, wenn sich der Zustand wirklich ändert.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
-      below: -300
+      below: -260
       for:
-        minutes: 2
+        minutes: 5
       id: ueberschuss_an
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
-      above: -50
+      above: 50
+      for:
+        minutes: 2
+      id: netzbezug_aus
+    - trigger: numeric_state
+      entity_id: sensor.zendure_power
+      below: -50
       for:
         minutes: 1
-      id: netzbezug_aus
+      id: zendure_speist
     - trigger: state
       entity_id:
         - sensor.zendure_soc_limit_status
@@ -231,7 +271,10 @@
               state: "Charging Limit Reached"
             - condition: numeric_state
               entity_id: sensor.home_energy_meter_power
-              below: -300
+              below: -260
+            - condition: numeric_state
+              entity_id: sensor.zendure_power
+              above: -50
             - condition: sun
               after: sunrise
               before: sunset
@@ -246,7 +289,7 @@
                 message: "☀️ PV-Überschuss: Balkonheizung eingeschaltet"
                 entity_id: switch.mystrom_device
                 name: " "
-        - alias: "Kein Überschuss mehr -> ausschalten"
+        - alias: "Kein Überschuss mehr oder Gerät speist ins Haus -> ausschalten"
           conditions:
             - condition: state
               entity_id: input_boolean.balkonheizung_automatik_aktiv
@@ -258,12 +301,15 @@
               conditions:
                 - condition: numeric_state
                   entity_id: sensor.home_energy_meter_power
-                  above: -50
+                  above: 50
+                - condition: numeric_state
+                  entity_id: sensor.zendure_power
+                  below: -50
                 - condition: sun
                   after: sunset
                   before: sunrise
             - condition: trigger
-              id: ["netzbezug_aus", "resync", "soc_wechsel"]
+              id: ["netzbezug_aus", "zendure_speist", "resync", "soc_wechsel"]
           sequence:
             - action: switch.turn_off
               target:

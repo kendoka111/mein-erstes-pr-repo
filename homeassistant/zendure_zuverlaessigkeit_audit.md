@@ -192,8 +192,36 @@ Wann Gielz überhaupt entlädt (nachgelesen 05.10., Hash `89023c6c06b06183`):
 - **Schlafen** (RAM → Flash): 15 Min Standby, keine Kalibrierung und in
   den letzten 5 Min kein Bezugswert über 100 W.
 - Beleg 05.10.: Bezug lag 09:20–09:27 Uhr bei ~66 W (unter 100 W, keine
-  Entladung). 09:27:45 Uhr Sprung auf 154 W, 09:27:50 Uhr Akku −118 W
-  (5 s), 09:27:57 Uhr RAM.
+  Entladung). 09:27:45 Uhr Sprung auf 154 W, 09:27:50 Uhr gibt das Gerät
+  118 W ins Haus ab (5 s), 09:27:57 Uhr RAM. (Korrigiert am 05.10.
+  abends: Zuerst stand hier „Akku −118 W“, siehe nächster Absatz.)
+
+**Richtigstellung 05.10. abends: `sensor.zendure_power` ist nicht die
+Akkuleistung** (Dr.-Schmidt-Befund bei der Prüfung der Heizung 260/50):
+- Der Sensor zeigt die Ausgangsleistung des Geräts ins Haus, aus PV
+  und/oder Akku. Negativ heißt: das Gerät gibt ab.
+- Beleg: Am 05.10. von 09:27:50 bis 11:02:41 stand `charging_mode` auf
+  „Discharging“ bei −69 bis −200 W. Gleichzeitig stieg der SOC von 43 auf
+  95 %, der Akku wurde also geladen. Auch die Gielz-Formel rechnet
+  `p1 − zendure_power` als Hausbedarf.
+- Im Bypass am SOC-Limit steht der Wert auf 0 W, auch wenn PV ins Haus
+  läuft.
+- Betroffen sind nur Texte: die Push-Meldungen der Bypass-Autolösung
+  („Akkuleistung“, „Akku entlädt (… W)“) und Formulierungen im Kernbefund
+  vom 04.10. An der Funktion ändert sich nichts.
+
+**Nachtrag 05.10. abends: Heizung ab 260 W, Bypass-Autolösung nur bei
+Heizung aus.**
+- Die Balkonheizung schaltet jetzt bei mehr als 260 W Einspeisung ein
+  (5 Min.) und erst bei mehr als 50 W Netzbezug aus (2 Min.). Neu ist ein
+  zweiter Ausschaltgrund: das Gerät gibt mehr als 50 W ins Haus ab
+  (1 Min.). Details und Simulation in `balkon_heizung_ueberschuss.yaml`.
+  Hash 7d6da0c851ac9711 → 6ad90a6d8d78dd02.
+- Weil das Panel jetzt bis zu ~35 W Netzbezug verursacht, hätte die
+  Hänger-Signatur der Autolösung den Panelstrom als Bedarf gewertet
+  (3 Fehlauslösungen in den Daten, Dr. Schmidt). Deshalb greift sie nur
+  noch bei `switch.mystrom_device` = off. Hash 992d2a48da5dc8d6 →
+  082760c360e5734b.
 - Gesperrt ist die Entladung bei SOC ≤ 18 % und im Ladevorrang („Smart
   Charge Only“ ab 18 % bis 40 %; 04.10. 20:31 bis 05.10. 09:20 Uhr).
 
@@ -912,3 +940,7 @@ Scharfschalten kalibriert werden müssen.
   Discharge live (`zendure_bypass_autoloesung.yaml`, Hash
   `992d2a48da5dc8d6`). Aussage „Quick Discharge wirkungslos“ vom 26.09.
   korrigiert. Gielz-Entladestart, Wecken und Schlafen beschrieben.
+- **Fassung 10 (05.10.2026, abends):** Richtigstellung: `zendure_power`
+  ist die Geräteabgabe ins Haus, nicht die Akkuleistung. Heizung auf
+  260/50 mit Geräteabgabe-Schutz, Bypass-Autolösung nur bei Heizung aus
+  (Hashes 6ad90a6d8d78dd02 und 082760c360e5734b).

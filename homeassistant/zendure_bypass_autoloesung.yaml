@@ -21,6 +21,13 @@
 #   automation.zendure_bypass_hanger_automatisch_losen
 #     (id zendure_bypass_haenger_autoloesung, config_hash 992d2a48da5dc8d6)
 #
+# 05.10. ca. 14:27 Uhr (Auflage aus der Dr.-Schmidt-Prüfung der Heizung
+# 260/50): Hänger-Signatur zusätzlich "switch.mystrom_device = off".
+# Hash 992d2a48da5dc8d6 -> 082760c360e5734b.
+# Hinweis: sensor.zendure_power ist die Ausgangsleistung des Geräts ins Haus
+# (PV und/oder Akku), nicht die Akkuleistung. Die Push-Texte "Akkuleistung"
+# bzw. "Akku entlädt (... W)" meinen also die Geräteabgabe.
+#
 - id: zendure_bypass_haenger_autoloesung
   alias: "Zendure: Bypass-Hänger automatisch lösen"
   description: >-
@@ -39,7 +46,12 @@
     13:52:08 -> 13:52:13). Hoechstens ein Versuch pro Stunde. Der Merker
     sichert gegen Neustart oder Reload, solange Quick Discharge steht.
     Der Waechter zendure_waechter_bypass_haenger bleibt unveraendert als
-    reiner Melder bestehen.
+    reiner Melder bestehen. Seit 05.10. abends greift die Signatur nur bei ausgeschalteter
+    Balkonheizung (switch.mystrom_device off): Bei laufendem Panel (ca. 295 W,
+    Heizung schaltet seit 05.10. erst bei ueber 50 W Netzbezug ab) haelt die
+    Signatur sonst den Panelstrom fuer echten Bedarf. Ein echter Haenger wird
+    spaetestens beim naechsten 5-Min.-Takt nach dem Abschalten des Panels
+    geloest.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.zendure_netzbezug_min_40s
@@ -86,6 +98,9 @@
             - condition: state
               entity_id: sensor.zendure_calibrating
               state: "No"
+            - condition: state
+              entity_id: switch.mystrom_device
+              state: "off"
   actions:
     - choose:
         - alias: "Aufraeumen nach Neustart oder abgebrochenem Lauf"
