@@ -25,6 +25,9 @@
 # 260/50): Hänger-Signatur zusätzlich "switch.mystrom_device = off".
 # Hash 992d2a48da5dc8d6 -> 082760c360e5734b; description-Zeitangabe
 # danach korrigiert ("abends" -> "ca. 14:27 Uhr"), Hash jetzt 5dedbacfb67d635f.
+# Abnahme A4 bestanden (05.10.): Lauf 16:23:42, Discharging nach 17 s,
+# zurück auf Smart Matching nach 90 s, Entladung lief weiter, 94 s
+# Einspeisung bis -479 W, Heizung blieb aus. Details im Audit.
 # Hinweis: sensor.zendure_power ist die Ausgangsleistung des Geräts ins Haus
 # (PV und/oder Akku), nicht die Akkuleistung. Die Push-Texte "Akkuleistung"
 # bzw. "Akku entlädt (... W)" meinen also die Geräteabgabe.

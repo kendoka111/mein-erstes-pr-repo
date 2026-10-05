@@ -226,6 +226,29 @@ Heizung aus.**
   082760c360e5734b, nach Korrektur der Zeitangabe in der description
   5dedbacfb67d635f.
 
+**Abnahme A4 Bypass-Autolösung (Abend-Check 05.10., 19:30 Uhr): bestanden.**
+Erster echter Lauf am selben Nachmittag:
+- 16:23:42 Auslöser `min_40s` 102,4 W, SOC 94 %, „Charging Limit
+  Reached“ seit 11:02, Standby seit 11:02, PV 204 W, Heizung aus. Push
+  „Lösungsversuch“, Merker an, Quick Discharge.
+- 16:23:59 „Discharging“ (17 s nach dem Umschalten), Geräteabgabe 800 W.
+- 16:25:29 zurück auf Smart Matching nach der 90-s-Obergrenze, Merker aus.
+  „Normal Operation“ kam erst 16:26:05 (SOC 93 %). Die Entladung lief
+  trotzdem weiter, Gielz regelte das Netz danach auf etwa −5 W.
+- 16:27:29 Push „Bypass-Hänger gelöst“ (SOC 93 %, Geräteabgabe −397 W).
+- Einspeisespitze 16:24:16–16:25:49 mit −396 bis −479 W, also 94 s am
+  Stück unter −300 W. Das liegt unter den 2 Minuten, ab denen die
+  Balkonheizung einschalten könnte. Rund 11 Wh eingespeist.
+- Balkonheizung blieb aus, Modus danach Smart Matching, Merker aus.
+  Danach bis 19:30 Uhr nur noch abgewiesene Läufe (Bedingungen nicht
+  erfüllt, Akku nicht mehr am Limit).
+- Ohne Autolösung hätte der Hänger wie am 04.10. bis zum Eingriff von Hand
+  gedauert.
+
+Abnahme Heizung 260/50 noch offen: Nach dem Einspielen (14:29 Uhr) lag
+die Einspeisung nie über etwa 190 W, es gab also keinen Schaltfall.
+Nächster Check am nächsten Sonnentag.
+
 ---
 
 ## Fehlerklasse 2 — Stille PV-Export-Deckelung ("Netzeinspeisung verboten")
@@ -944,4 +967,5 @@ Scharfschalten kalibriert werden müssen.
 - **Fassung 10 (05.10.2026, ca. 14:30 Uhr):** Richtigstellung: `zendure_power`
   ist die Geräteabgabe ins Haus, nicht die Akkuleistung. Heizung auf
   260/50 mit Geräteabgabe-Schutz, Bypass-Autolösung nur bei Heizung aus
-  (Hashes 6ad90a6d8d78dd02 und 5dedbacfb67d635f).
+  (Hashes 6ad90a6d8d78dd02 und 5dedbacfb67d635f). Abnahme A4 der
+  Bypass-Autolösung am selben Tag bestanden (Lauf 16:23 Uhr).
