@@ -119,6 +119,84 @@ automatischer Eingriff des Wächters („Fix 2“, bisher zurückgestellt) wäre
 der nächste Schritt; Entscheidung Normen und Prüfung durch Dr. Schmidt
 stehen aus.
 
+**Nachtrag 05.10.2026: Mechanismus gefunden, automatische Lösung live.**
+
+Mechanismus (Dr.-Schmidt-Auswertung 04.10., rund zehn Ereignisse am
+26.09. und 04.10.):
+- Bei „Charging Limit Reached“ läuft die PV im Bypass direkt ins Haus.
+  Der Akku springt nur an, wenn das gesendete `outputLimit` **größer als
+  die PV-Leistung** ist. Beispiele: 04.10. 12:34 Uhr 800 W bei PV 782 W →
+  Entladung; 13:27 Uhr 501–584 W bei PV 605–743 W → keine; ab 13:28 Uhr
+  614→714 W bei PV 542→405 W → Entladung.
+- Der Gielz-Startzweig sendet 0,75 × (Bezug + 5 W). Am 04.10. waren das
+  14:28–15:17 Uhr 79–175 W bei PV 170–330 W, also durchgehend darunter.
+  Deshalb kein Anlauf, ohne REST-Fehler.
+- `soc_limit_status` wechselt erst bei SOC 93 % (Maximum 95 %) auf
+  „Normal Operation“ (26.09. 14:42:51, 04.10. 15:20:16). Ab dann regelt
+  das Gerät normal.
+- `charging_mode` stand am 04.10. schon ab 12:56:13 auf Standby (Ausnahme
+  13:28:33–13:29:19). Bedarf über der Schwelle gab es erst ab ca. 14:29.
+- **Korrektur zur Aussage vom 26.09.** (Fehlerklasse 5 und
+  `zendure_ausgangsleistung_dynamisch.yaml`: „Quick Discharge
+  wirkungslos“): Das stimmt nur für 11:20 Uhr, als die PV am 650-W-Deckel
+  stand. Um 13:51:54 Uhr hat Quick Discharge gewirkt (Discharging
+  13:52:08). Der sofortige Rückwechsel sendete `outputLimit` 0 und
+  beendete die Entladung wieder (Standby 13:52:13).
+- Folgerung: Quick Discharge (`{"acMode":2,"outputLimit":800}`, wird in
+  diesem Modus gehalten) ist der einzige wirksame Zwischenmodus, solange
+  die PV unter 800 W liegt. Zurück auf Smart Matching erst bei „Normal
+  Operation“, spätestens 90 s nach Entladebeginn.
+
+Umsetzung (Normen hat zugestimmt, auch Auflage A5; Dr.-Schmidt-Fassung
+unverändert übernommen, Datei `zendure_bypass_autoloesung.yaml`):
+- Helfer `input_boolean.zendure_bypass_autoloesung_laeuft` ohne `initial`
+  (A1).
+- `automation.zendure_bypass_hanger_automatisch_losen`, id
+  `zendure_bypass_haenger_autoloesung`, Hash `992d2a48da5dc8d6`, live seit
+  05.10. ca. 13:41 Uhr, entity_id geprüft (A3).
+- Auslöser: `netzbezug_min_40s` über der Entlade-Startschwelle, alle 5 Min
+  ein Takt, HA-Start.
+- Bedingung (Hänger-Signatur): Smart Matching seit 10 Min, „Charging Limit
+  Reached“ seit 10 Min, `charging_mode` Standby seit 2 Min,
+  `zendure_power` > −20 W, `min_40s` > Startschwelle, PV <
+  `max_discharge_power`, keine Kalibrierung.
+- Ablauf: Push, Merker an, Quick Discharge, warten auf Discharging (max.
+  90 s), dann auf „Normal Operation“ (max. 90 s), zurück auf Smart
+  Matching (nur wenn noch Quick Discharge steht), Merker aus. Nach 2 Min
+  Ergebnis-Push. Danach 1 h Sperre.
+- Absicherung: Beim HA-Start oder wenn der Merker noch an ist, wird ein
+  stehengebliebenes Quick Discharge auf Smart Matching zurückgesetzt (A5).
+- Simulation 24.09.–04.10. (5-min-Statistik): keine Fehlauslösung, nur die
+  echten Episoden 26.09. nachmittags und 04.10.
+- Grenzen: pro Versuch höchstens ca. 15 Wh Einspeisung. Bei PV ≥ 800 W
+  greift die Lösung nicht; dann meldet weiter nur der Wächter.
+- Der Wächter bleibt unverändert als reiner Melder.
+- Offen (A4): Abnahme am ersten vollen Akku-Tag mit Hänger. Im Trace muss
+  Quick Discharge höchstens 90 s nach Entladebeginn enden,
+  `home_energy_meter_power` darf nicht 2 Min am Stück unter −300 W liegen
+  und die Balkonheizung darf nicht durch den Versuch einschalten.
+- Nicht umgesetzt (Normens Entscheidung): Patch der Gielz-Startformel,
+  sodass sie bei „Charging Limit Reached“ die Bypass-PV einrechnet. Das
+  wäre die eigentliche Ursache, ginge aber beim nächsten Gielz-Update
+  verloren.
+
+Wann Gielz überhaupt entlädt (nachgelesen 05.10., Hash `89023c6c06b06183`):
+- **Entladestart** (Smart Matching Control, alle 5 s): Momentanwert
+  `home_energy_meter_power` > 100 W, SOC über Geräte-Minimum (18 %),
+  `zendure_power` zwischen −30 und +30 W, Modus Smart Matching,
+  `soc_limit_status` „Normal Operation“ oder „Charging Limit Reached“.
+  Gesendet werden 0,75 × (Bezug + 5 W). Der Zweig prüft den
+  Speichermodus nicht, startet also auch aus Flash.
+- **Wecken** (Flash → RAM) ist davon getrennt und folgt meist danach,
+  über `zendure_power` < 0 oder `min_40s` > 100 W.
+- **Schlafen** (RAM → Flash): 15 Min Standby, keine Kalibrierung und in
+  den letzten 5 Min kein Bezugswert über 100 W.
+- Beleg 05.10.: Bezug lag 09:20–09:27 Uhr bei ~66 W (unter 100 W, keine
+  Entladung). 09:27:45 Uhr Sprung auf 154 W, 09:27:50 Uhr Akku −118 W
+  (5 s), 09:27:57 Uhr RAM.
+- Gesperrt ist die Entladung bei SOC ≤ 18 % und im Ladevorrang („Smart
+  Charge Only“ ab 18 % bis 40 %; 04.10. 20:31 bis 05.10. 09:20 Uhr).
+
 ---
 
 ## Fehlerklasse 2 — Stille PV-Export-Deckelung ("Netzeinspeisung verboten")
@@ -247,7 +325,8 @@ nullwertige) Leistung liefert.
 Zweimal am selben Tag beobachtet: 10:35–11:37 Uhr (47+ Minuten,
 Netzbezug bis 1829 W bei 95–100 % SOC) und erneut ab 13:52 Uhr. Ein
 direkter, per Hand ausgelöster "Quick Discharge"-Befehl mit vollem
-Leistungswert blieb während des Hängers wirkungslos (Akku weiter 0 W) —
+Leistungswert blieb während des Hängers wirkungslos (Akku weiter 0 W;
+Korrektur 05.10.: gilt nur für 11:20 Uhr, siehe Fehlerklasse 1) —
 das schließt aus, dass eine zu niedrige `max_discharge_power`-Einstellung
 die Ursache war (separat mit Live-Gegenprobe belegt: PV und Akku liefen
 am 26.09. 10:30–10:35 Uhr bereits gleichzeitig mit zusammen >1150 W bei
@@ -828,3 +907,8 @@ Scharfschalten kalibriert werden müssen.
   der Stopp ist ungegatet (Hash jetzt `89023c6c06b06183`). Trapez-Fehler
   in den Netz-Energiezählern gefunden, beide Helfer auf „left“ umgestellt,
   der Tagesfehler 02.10. aus der Statistik entfernt.
+- **Fassung 9 (05.10.2026):** Bypass-Hänger-Mechanismus nachgetragen
+  (outputLimit muss über der PV liegen). Automatische Lösung über Quick
+  Discharge live (`zendure_bypass_autoloesung.yaml`, Hash
+  `992d2a48da5dc8d6`). Aussage „Quick Discharge wirkungslos“ vom 26.09.
+  korrigiert. Gielz-Entladestart, Wecken und Schlafen beschrieben.

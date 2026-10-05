@@ -1,0 +1,219 @@
+# Bypass-Hänger automatisch lösen (Fehlerklasse 1, live seit 05.10.2026)
+#
+# Entwurf von Dr. Schmidt am 04.10. zurückgewiesen; diese Datei ist seine
+# empfohlene Fassung nach den Auflagen A1-A5, unverändert übernommen.
+# Normen hat A5 am 05.10. bestätigt: Steht beim HA-Start "Quick Discharge",
+# wird auf "Smart Matching" zurückgestellt - auch wenn er den Modus von Hand
+# gewählt hatte (sonst könnte ein abgebrochener Lauf den Akku ohne SOC-Stopp
+# mit 800 W leerziehen).
+#
+# Mechanismus und Belege: zendure_zuverlaessigkeit_audit.md, Fehlerklasse 1,
+# Nachtrag 05.10. Kurz: Am SOC-Limit ("Charging Limit Reached") entlädt der
+# Akku nur, wenn das gesendete outputLimit über der PV liegt. Der
+# Gielz-Startzweig sendet 0,75 x (Bezug + 5 W) und bleibt bei Teillast
+# darunter. Quick Discharge sendet und hält 800 W.
+#
+# Der Wächter zendure_waechter_bypass_haenger (zendure_waechter.yaml) bleibt
+# unverändert als reiner Melder.
+#
+# Live eingerichtet 05.10.2026, ca. 13:41 Uhr:
+#   input_boolean.zendure_bypass_autoloesung_laeuft (UI-Helfer, ohne initial)
+#   automation.zendure_bypass_hanger_automatisch_losen
+#     (id zendure_bypass_haenger_autoloesung, config_hash 992d2a48da5dc8d6)
+#
+- id: zendure_bypass_haenger_autoloesung
+  alias: "Zendure: Bypass-Hänger automatisch lösen"
+  description: >-
+    Fehlerklasse 1. Am SOC-Limit ("Charging Limit Reached") laeuft das Geraet im
+    Bypass. Die Akku-Entladung setzt nach den Daten vom 26.09. und 04.10. erst
+    ein, wenn das gesendete outputLimit die PV-Leistung uebersteigt. Der
+    Gielz-Startzweig sendet 0,75 x (Netzbezug + 5 W) und liegt damit bei
+    Teillast unter der PV, also entlaedt der Akku nicht. Quick Discharge sendet
+    outputLimit = max_discharge_power (800 W bei vollem Akku) und haelt diesen
+    Wert, weil die Smart-Matching-Regelung in diesem Modus nicht laeuft.
+    Zurueck auf Smart Matching wird erst geschaltet, wenn soc_limit_status
+    "Normal Operation" meldet (beobachtet bei SOC 93 %), spaetestens aber
+    90 s nach Entladebeginn. So bleibt die Einspeisespitze unter der
+    2-Minuten-Entprellung der Balkonheizung. Ein frueher Rueckwechsel
+    schickt outputLimit 0 und beendet die Entladung wieder (26.09.,
+    13:52:08 -> 13:52:13). Hoechstens ein Versuch pro Stunde. Der Merker
+    sichert gegen Neustart oder Reload, solange Quick Discharge steht.
+    Der Waechter zendure_waechter_bypass_haenger bleibt unveraendert als
+    reiner Melder bestehen.
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.zendure_netzbezug_min_40s
+      above: input_number.zendure_setting_start_discharging_at
+      id: bedarf
+    - trigger: time_pattern
+      minutes: "/5"
+      id: takt
+    - trigger: homeassistant
+      event: start
+      id: neustart
+  conditions:
+    - condition: or
+      conditions:
+        - condition: trigger
+          id: neustart
+        - condition: state
+          entity_id: input_boolean.zendure_bypass_autoloesung_laeuft
+          state: "on"
+        - alias: "Haenger-Signatur: Bypass am SOC-Limit, Bedarf, keine Entladung"
+          condition: and
+          conditions:
+            - condition: state
+              entity_id: input_select.zendure_operation_mode
+              state: "Smart Matching"
+              for: "00:10:00"
+            - condition: state
+              entity_id: sensor.zendure_soc_limit_status
+              state: "Charging Limit Reached"
+              for: "00:10:00"
+            - condition: state
+              entity_id: sensor.zendure_charging_mode
+              state: "Standby"
+              for: "00:02:00"
+            - condition: numeric_state
+              entity_id: sensor.zendure_power
+              above: -20
+            - condition: numeric_state
+              entity_id: sensor.zendure_netzbezug_min_40s
+              above: input_number.zendure_setting_start_discharging_at
+            - condition: numeric_state
+              entity_id: sensor.zendure_power_pv_total
+              below: input_number.zendure_setting_max_discharge_power
+            - condition: state
+              entity_id: sensor.zendure_calibrating
+              state: "No"
+  actions:
+    - choose:
+        - alias: "Aufraeumen nach Neustart oder abgebrochenem Lauf"
+          conditions:
+            - condition: or
+              conditions:
+                - condition: trigger
+                  id: neustart
+                - condition: state
+                  entity_id: input_boolean.zendure_bypass_autoloesung_laeuft
+                  state: "on"
+          sequence:
+            - if:
+                - condition: state
+                  entity_id: input_select.zendure_operation_mode
+                  state: "Quick Discharge"
+              then:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.zendure_operation_mode
+                  data:
+                    option: "Smart Matching"
+                - action: notify.mobile_app_sm_a725f
+                  continue_on_error: true
+                  data:
+                    title: "Zendure: Quick Discharge zurückgesetzt"
+                    message: >-
+                      Nach Neustart oder abgebrochenem Lösungsversuch stand der
+                      Modus noch auf "Quick Discharge". Auf "Smart Matching"
+                      zurückgestellt.
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.zendure_bypass_autoloesung_laeuft
+      default:
+        - action: notify.mobile_app_sm_a725f
+          data:
+            title: "Zendure: Bypass-Hänger, Lösungsversuch"
+            message: >-
+              Akku {{ states('sensor.zendure_total_state_of_charge') }} %,
+              Charging Limit Reached, Netzbezug
+              {{ states('sensor.zendure_netzbezug_min_40s') }} W, PV
+              {{ states('sensor.zendure_power_pv_total') }} W, Akku gibt nichts
+              ab. Schalte auf Quick Discharge, bis das Gerät entlädt.
+        - action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.zendure_bypass_autoloesung_laeuft
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.zendure_operation_mode
+          data:
+            option: "Quick Discharge"
+        - wait_for_trigger:
+            - trigger: state
+              entity_id: sensor.zendure_charging_mode
+              to: "Discharging"
+          timeout: "00:01:30"
+          continue_on_timeout: true
+        - if:
+            - condition: state
+              entity_id: sensor.zendure_charging_mode
+              state: "Discharging"
+          then:
+            - wait_for_trigger:
+                - trigger: state
+                  entity_id: sensor.zendure_soc_limit_status
+                  to: "Normal Operation"
+              timeout: "00:01:30"
+              continue_on_timeout: true
+        - if:
+            - condition: state
+              entity_id: input_select.zendure_operation_mode
+              state: "Quick Discharge"
+          then:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.zendure_operation_mode
+              data:
+                option: "Smart Matching"
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.zendure_bypass_autoloesung_laeuft
+        - delay: "00:02:00"
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: sensor.zendure_soc_limit_status
+                  state: "Normal Operation"
+              sequence:
+                - action: notify.mobile_app_sm_a725f
+                  continue_on_error: true
+                  data:
+                    title: "Zendure: Bypass-Hänger gelöst"
+                    message: >-
+                      SOC-Limit verlassen ("Normal Operation"), Akku
+                      {{ states('sensor.zendure_total_state_of_charge') }} %,
+                      Lademodus {{ states('sensor.zendure_charging_mode') }},
+                      Akkuleistung {{ states('sensor.zendure_power') }} W, Modus
+                      {{ states('input_select.zendure_operation_mode') }}.
+            - conditions:
+                - condition: state
+                  entity_id: sensor.zendure_charging_mode
+                  state: "Discharging"
+              sequence:
+                - action: notify.mobile_app_sm_a725f
+                  continue_on_error: true
+                  data:
+                    title: "Zendure: Entladung läuft, Rückfall möglich"
+                    message: >-
+                      Akku entlädt ({{ states('sensor.zendure_power') }} W),
+                      steht aber noch auf "Charging Limit Reached"
+                      ({{ states('sensor.zendure_total_state_of_charge') }} %).
+                      Fällt der Bedarf unter die PV, kann er wieder hängen.
+                      Nächster Versuch frühestens in einer Stunde.
+          default:
+            - action: notify.mobile_app_sm_a725f
+              continue_on_error: true
+              data:
+                title: "Zendure: Bypass-Hänger NICHT gelöst"
+                message: >-
+                  Nach Quick Discharge weiterhin
+                  "{{ states('sensor.zendure_charging_mode') }}", Akku
+                  {{ states('sensor.zendure_total_state_of_charge') }} %, Netz
+                  {{ states('sensor.home_energy_meter_power') }} W, PV
+                  {{ states('sensor.zendure_power_pv_total') }} W, Modus
+                  {{ states('input_select.zendure_operation_mode') }}. Nächster
+                  Versuch frühestens in einer Stunde. Von Hand prüfen.
+        - delay: "01:00:00"
+  mode: single
+  max_exceeded: silent
+  trace:
+    stored_traces: 256

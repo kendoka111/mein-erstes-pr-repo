@@ -14,7 +14,8 @@
 # der Akku hat gleichzeitig mit ~150-170 W entladen, macht >1150 W kombiniert
 # - bei identischem 650-W-Setting, das seit Tagen unveraendert war. Ein
 # direkter "Quick Discharge"-Befehl mit vollen 650 W blieb während des
-# Hängers ebenfalls wirkungslos (Akku 0 W). Der Haenger selbst ist ein
+# Hängers ebenfalls wirkungslos (Akku 0 W; Korrektur 05.10.: nur um
+# 11:20 Uhr, siehe Audit Fehlerklasse 1). Der Haenger selbst ist ein
 # separater Deadlock zwischen dem Standby-Timeout (Automatisierung schickt
 # das Geraet nach input_number.zendure_setting_standby_delay Minuten
 # Inaktivitaet in sensor.zendure_storage_mode="Flash Memory") und dessen
