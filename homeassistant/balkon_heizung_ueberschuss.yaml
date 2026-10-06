@@ -188,10 +188,10 @@
 #   Daten).
 # - Live eingespielt 05.10. ca. 14:29 Uhr, config_hash vorher
 #   7d6da0c851ac9711, nachher 6ad90a6d8d78dd02.
-# - Offen: Abnahme am ersten Tag mit "Charging Limit Reached" (Einschalten
-#   nur über ueberschuss_an/soc_wechsel, Bezug bei laufendem Panel bis auf
-#   Spitzen unter 2 Min. nicht über +50 W, kein Lauf der Bypass-Autolösung
-#   bei laufendem Panel, zendure_speist nur bei echter Geräteabgabe).
+# - Abnahme 06.10. bestanden: 10:59:01 an über soc_wechsel, 13:28:10 aus
+#   über netzbezug_aus, 2,48 h am Stück, Netzbezug im Lauf 5 Wh, über +50 W
+#   nur die 2 Ausschalt-Minuten, zendure_speist nicht ausgelöst, keine
+#   Bypass-Autolösung bei laufendem Panel. Details im Audit.
 
 - id: balkon_heizung_ueberschuss
   alias: "Balkonheizung: PV-Überschuss"

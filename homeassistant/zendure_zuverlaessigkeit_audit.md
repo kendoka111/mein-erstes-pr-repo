@@ -249,6 +249,41 @@ Abnahme Heizung 260/50 noch offen: Nach dem Einspielen (14:29 Uhr) lag
 die Einspeisung nie über etwa 190 W, es gab also keinen Schaltfall.
 Nächster Check am nächsten Sonnentag.
 
+**Abnahme Heizung 260/50 (Check 06.10., 18:30 Uhr): bestanden.**
+- 10:59:01 eingeschaltet über `soc_wechsel` („Charging Limit Reached“
+  seit 10:57, Netz −572 W, Geräteabgabe 0 W). 13:28:10 ausgeschaltet über
+  `netzbezug_aus` (Bezug 13:26:10–13:28:10 über +50 W, Wolke).
+- Laufzeit 2,48 h am Stück, ein automatischer Zyklus, kein Kurzzyklus.
+  Netzbezug während des Laufs zusammen 5 Wh; über +50 W nur die 2
+  Ausschalt-Minuten am Ende (1,6 % der Zeit). Es wurden trotzdem noch
+  519 Wh eingespeist, der Überschuss war größer als das Panel.
+- `zendure_speist` hat während des Laufs nicht ausgelöst (Geräteabgabe
+  durchgehend 0 W). Die Bypass-Autolösung lief nicht, solange das Panel an
+  war.
+- Nebenbefund: 08:31:23 wurde das Panel von Hand eingeschaltet (kein Trace
+  der Automatik, Akku noch nicht voll). Die Automatik schaltete es 08:35:00
+  beim Resync wieder aus. Das ist das vorgesehene Verhalten bei
+  Automatik = an.
+
+**Zweiter Lauf der Bypass-Autolösung 06.10., 16:13 Uhr: NICHT gelöst.**
+- 16:13:49 Auslöser `min_40s` 139 W, SOC 94 %, PV 295 W, Panel aus.
+  Quick Discharge, 16:14:05 „Discharging“ mit 800 W Geräteabgabe.
+- 16:15:35 zurück auf Smart Matching nach der 90-s-Obergrenze. Der SOC
+  stand noch bei 94 %, also weiter „Charging Limit Reached“. 16:15:37 wieder
+  Standby: Der Rückwechsel hat die Entladung beendet, genau der
+  Mechanismus vom 26.09. Push „NICHT gelöst“.
+- 16:24:48 lief die Entladung von selbst wieder an (Gielz-Start über der
+  PV), 16:25:52 SOC 93 %, 16:25:58 „Normal Operation“. Der Hänger dauerte
+  damit etwa 11 Minuten statt bis zum Eingriff von Hand.
+- Ursache: 1 % SOC sind etwa 24 Wh. Bei 800 W Geräteabgabe und rund
+  290 W PV liefert der Akku nur etwa 510 W, braucht also knapp 3 Minuten
+  für 1 %. Am 05.10. reichte es nur, weil die Entladung nach dem Rückwechsel
+  weiterlief.
+- Die 90-s-Grenze stammt aus der Zeit, als die Heizung schon nach 2 Minuten
+  Einspeisung über 300 W einschaltete. Seit 05.10. braucht sie 5 Minuten über
+  260 W. Vorschlag (noch nicht umgesetzt, Normen und Dr. Schmidt
+  entscheiden): Obergrenze auf etwa 4 Minuten anheben.
+
 ---
 
 ## Fehlerklasse 2 — Stille PV-Export-Deckelung ("Netzeinspeisung verboten")
