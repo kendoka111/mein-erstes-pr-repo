@@ -6,7 +6,7 @@ Hierher kommen wir zurück, falls die Verschlankung etwas verschlechtert.
   Backup-ID `9c2f0f83`, 07.10.2026 19:24 Uhr, ca. 77 MB (ohne Datenbank).
   Wiederherstellen startet HA neu und setzt **alles** seit dem Zeitpunkt
   zurück. Nur als letzter Ausweg und nur nach Rückfrage.
-- **Git-Markierung:** `sicherungspunkt-2026-10-07`
+- **Git-Stand:** Commit `3f0a8e2` auf Branch claude/ha-battery-charge-strategy-c4ybdd
 - **Live-Konfiguration:** Die 11 YAML-Dateien in diesem Ordner sind exakte
   Kopien der Live-Automationen. Jede ergibt den angegebenen `config_hash`
   (sha256 über das sortierte, kompakte JSON, erste 16 Zeichen).

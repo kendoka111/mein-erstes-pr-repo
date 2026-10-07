@@ -2,7 +2,7 @@
 
 Normen: "Wir müssen das Ganze wieder verschlanken und vereinfachen."
 Sicherungspunkt vorher: `live_stand_2026-10-07/` (HA-Backup `9c2f0f83`,
-Git-Markierung `sicherungspunkt-2026-10-07`).
+Commit `3f0a8e2`).
 
 Dr. Schmidt (07.10.): **FREIGABE MIT AUFLAGEN.** Normen: "Ja", erst
 Sicherungspunkt.
@@ -11,7 +11,7 @@ Sicherungspunkt.
 
 | # | Schritt | Status |
 |---|---|---|
-| 0 | Sicherungspunkt (Backup, Live-Kopie, Git-Markierung) | erledigt 07.10. |
+| 0 | Sicherungspunkt (Backup, Live-Kopie, Commit 3f0a8e2) | erledigt 07.10. |
 | 1 | Gielz-Startformel G5 (PV addieren bei "Charging Limit Reached" und Heizung aus, nur `actions[2].choose[0]`) + Bypass-Autolösung v2 (Timeout 15 Min bis "Normal Operation"). Auflage A4: nur einspielen, wenn Merker aus. | offen |
 | 2 | Heizung: `input_boolean.balkonheizung_automatik_aktiv` streichen. Überschuss-Automation prüft `input_select.balkonheizung_modus` = "Automatisch"; Trigger `automatik_toggle` ersatzlos weg; Moduswahl schaltet nur noch bei Aus/An; Helfer zuletzt löschen; alle drei Modi testen. Vor dem Beobachtungsfenster von Schritt 1. | offen |
 | 3 | Wächter 4 ("Gerät lehnt Befehl ab"): kann nie auslösen (system_log_event wird nicht gefeuert). Empfehlung Dr. Schmidt: löschen und im Audit vermerken. | offen, Normens Entscheidung |
