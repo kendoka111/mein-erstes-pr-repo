@@ -32,6 +32,32 @@
 # (PV und/oder Akku), nicht die Akkuleistung. Die Push-Texte "Akkuleistung"
 # bzw. "Akku entlädt (... W)" meinen also die Geräteabgabe.
 #
+# v2 (Dr.-Schmidt-Fassung vom 06.10.2026, abends): Obergrenze nach
+# Entladebeginn von 90 s auf 15 Min. Anlass: Lauf 06.10. 16:13 nicht gelöst,
+# Rückwechsel nach 90 s bei SOC 94 % beendete die Entladung (16:15:37
+# Standby). Belege (sensor.zendure_power_export_dc = Akku-DC-Leistung):
+#   05.10.: ca. 17 Wh DC bis SOC 93 (620 W x 91 s + 210 W x 26 s)
+#   06.10.: ca. 18 Wh DC bis SOC 93 (535 W x 90 s + 250 W x 63 s)
+#   Hänger traten auch bei SOC 95 auf (26.09., 28.09., 29.09.): dann
+#   ca. 40-48 Wh bis SOC 93.
+# Akku-DC-Leistung in Quick Discharge ca. (800 W - PV) x 1,06. Dauer bis
+# "Normal Operation": SOC 94 und PV 300 W ca. 2 Min.; SOC 95 und PV 520 W
+# ca. 8,5 Min. 15 Min. decken 9 von 10 Hänger-Starts der letzten 10 Tage ab
+# (Rest: PV 666 W bei SOC 95, Hausbedarf > 800 W, dort keine Einspeisung).
+# Die 90 s stammten aus der alten Heizungslogik (2 Min. unter -300 W). Die
+# Heizung kann während Quick Discharge gar nicht einschalten: Ihr
+# Einschaltzweig verlangt sensor.zendure_power > -50 W, in Quick Discharge
+# steht er bei ca. -800 W; danach fehlt "Charging Limit Reached".
+# Einspeisung pro Versuch ist durch die Akkuenergie bis SOC 93 begrenzt
+# (Einspeisung = Akkuanteil - (Hausbedarf - PV)), also höchstens ca. 45 Wh,
+# unabhängig von der Dauer. Geändert gegenüber Hash 5dedbacfb67d635f: nur
+# timeout der zweiten wait_for_trigger (00:01:30 -> 00:15:00) und der
+# description-Satz zur Obergrenze.
+#
+#
+# v2 live eingespielt 09.10.2026 ca. 21:40 Uhr (Merker war aus, Auflage A4),
+# config_hash 5dedbacfb67d635f -> 3a1371d70ddfef97 (identisch mit dieser Datei).
+# Zeitgleich Gielz-Patch G5 (Startformel) live, siehe VERSCHLANKUNG_PLAN.md.
 - id: zendure_bypass_haenger_autoloesung
   alias: "Zendure: Bypass-Hänger automatisch lösen"
   description: >-
@@ -44,8 +70,11 @@
     Wert, weil die Smart-Matching-Regelung in diesem Modus nicht laeuft.
     Zurueck auf Smart Matching wird erst geschaltet, wenn soc_limit_status
     "Normal Operation" meldet (beobachtet bei SOC 93 %), spaetestens aber
-    90 s nach Entladebeginn. So bleibt die Einspeisespitze unter der
-    2-Minuten-Entprellung der Balkonheizung. Ein frueher Rueckwechsel
+    15 Min. nach Entladebeginn (seit 06.10.; vorher 90 s, Lauf 06.10. 16:13
+    daran gescheitert). Die Balkonheizung kann waehrend Quick Discharge nicht
+    einschalten, weil ihr Einschaltzweig sensor.zendure_power ueber -50 W
+    verlangt. Die Einspeisung pro Versuch ist durch die Akkuenergie bis SOC 93
+    begrenzt (hoechstens ca. 45 Wh). Ein frueher Rueckwechsel
     schickt outputLimit 0 und beendet die Entladung wieder (26.09.,
     13:52:08 -> 13:52:13). Hoechstens ein Versuch pro Stunde. Der Merker
     sichert gegen Neustart oder Reload, solange Quick Discharge steht.
@@ -171,7 +200,7 @@
                 - trigger: state
                   entity_id: sensor.zendure_soc_limit_status
                   to: "Normal Operation"
-              timeout: "00:01:30"
+              timeout: "00:15:00"
               continue_on_timeout: true
         - if:
             - condition: state
