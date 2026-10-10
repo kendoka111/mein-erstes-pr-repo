@@ -1,4 +1,5 @@
-# Live-Stand automation.zendure_zensdk_gielz_global mit lokalen Patches G1-G5, config_hash dab194b233397e2c (09.10.2026)
+# Live-Stand automation.zendure_zensdk_gielz_global mit lokalen Patches G1-G6, config_hash 67885ea906ee1618 (10.10.2026)
+# G6 (10.10.): actions[1].choose[13].conditions[1] als or aus zwei state-Bedingungen, weil HA 2026.10 'for' mit Zustandsliste verbietet.
 # Exakte Kopie; zum Wiedereinspielen siehe VERSCHLANKUNG_PLAN.md / gielz_lokale_patches.md.
 - id: '1787734651777'
   alias: Zendure zenSDK (Gielz) Global
@@ -708,15 +709,22 @@
       - condition: trigger
         id:
         - aansturing_trigger
-      - condition: state
-        entity_id: sensor.home_energy_meter_power
-        state:
-        - unavailable
-        - unknown
-        for:
-          hours: 0
-          minutes: 1
-          seconds: 0
+      - condition: or
+        conditions:
+        - condition: state
+          entity_id: sensor.home_energy_meter_power
+          state: unavailable
+          for:
+            hours: 0
+            minutes: 1
+            seconds: 0
+        - condition: state
+          entity_id: sensor.home_energy_meter_power
+          state: unknown
+          for:
+            hours: 0
+            minutes: 1
+            seconds: 0
       - condition: state
         entity_id: input_select.zendure_operation_mode
         state:

@@ -878,6 +878,47 @@ entsprechen jetzt dem Leistungsmittel × 1 h:
 
 ---
 
+## Gielz nach Core-Update 2026.10.0 deaktiviert, Patch G6 (10.10.2026)
+
+**Was passiert ist:** Home Assistant Core wurde am 10.10. gegen 13:12 Uhr
+von 2026.9 auf 2026.10.0 aktualisiert. Beim Neustart (13:13:38) lehnte HA
+`automation.zendure_zensdk_gielz_global` ab und deaktivierte sie
+(Zustand `unavailable`, Reparaturmeldung auf Normens Handy):
+„Cannot use 'for' with a list of states at
+'actions[1].choose[13].conditions[1]'“. Gielz steuerte damit von 13:11 bis
+16:18 Uhr nichts (letzter Lauf 13:11:05). Schaden gering: Wetter schlecht,
+Akku leer („Discharge Limit Reached“), Modus Smart Charge Only.
+
+**Ursache:** HA 2026.10 verbietet in einer state-Bedingung `for` zusammen
+mit einer Zustandsliste aus mehreren Einträgen. Betroffen ist nur der
+Gielz-Upstream-Zweig „Emergency Shutdown“ (Zähler 1 Minute
+`unavailable`/`unknown` → `rest_command.zendure_stop_with_everything`),
+kein lokaler Patch. Ein-Element-Listen mit `for` (choose[1], [8]–[11])
+akzeptiert HA weiterhin. Alle anderen Automationen luden fehlerfrei.
+
+**Patch G6** (Dr. Schmidt: FREIGABE MIT AUFLAGEN): nur
+`actions[1].choose[13].conditions[1]` ersetzt durch ein `or` aus zwei
+state-Bedingungen (`unavailable` bzw. `unknown`, je `for` 1 Minute).
+Gleiche Wirkung wie vorher, da `last_changed` für beide gemeinsam gilt.
+Hash `dab194b233397e2c` → `67885ea906ee1618`, live 16:18:19 Uhr.
+
+**Abnahme:** Automation „on“; Heartbeat 16:19:00 aktualisiert; erster Lauf 16:18:20 läuft fehlerfrei durch
+actions[0] bis [4]; der Notaus-Zweig prüft beide Teilbedingungen
+(Zähler 600 W → false); keine neue Validierungsmeldung im system_log,
+keine offene Reparaturmeldung zu Gielz.
+
+**Wichtig für später:**
+- G6 muss bei jedem bewussten Neueinspielen von Gielz erneut gesetzt
+  werden, solange Gielz das upstream nicht selbst korrigiert.
+- Der alte Stand `dab194b233397e2c` ist **kein** Rückweg mehr: Er lädt
+  unter 2026.10 nicht. Rückweg wäre nur ein Core-Downgrade.
+- Vor Core-Updates künftig die Breaking Changes gegen Gielz prüfen; ein
+  deaktiviertes Gielz meldet keiner der Wächter (Wächter 1 braucht Gielz-
+  Zustände, Freshness-Wächter prüft nur die Zendure-Sensoren). Offener
+  Punkt: Wächter für `automation.zendure_zensdk_gielz_global` ≠ „on“.
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
@@ -1004,3 +1045,6 @@ Scharfschalten kalibriert werden müssen.
   260/50 mit Geräteabgabe-Schutz, Bypass-Autolösung nur bei Heizung aus
   (Hashes 6ad90a6d8d78dd02 und 5dedbacfb67d635f). Abnahme A4 der
   Bypass-Autolösung am selben Tag bestanden (Lauf 16:23 Uhr).
+- **Fassung 11 (10.10.2026):** Core-Update 2026.10.0 deaktivierte Gielz
+  („for“ mit Zustandsliste im Notaus-Zweig). Patch G6 eingespielt (Hash
+  `67885ea906ee1618`), Gielz läuft wieder ab 16:18 Uhr.
