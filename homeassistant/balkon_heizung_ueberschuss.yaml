@@ -79,11 +79,13 @@
 # REST-Reload), verhindert das ein nächtliches Einschalten durch eine
 # veraltete "Charging Limit Reached"-Anzeige.
 #
-# input_boolean.balkonheizung_automatik_aktiv: manueller Vorrangschalter.
-# Bei Aus lässt diese Automatisierung den Schalter komplett in Ruhe -
-# gewünscht, um das Panel bei Bedarf auch außerhalb der Überschuss-Logik
-# gezielt manuell heizen zu können, ohne dass die Automatik das sofort
-# zurückschaltet. Default: an.
+# Modus-Sperre: Diese Automatisierung schaltet nur, wenn
+# input_select.balkonheizung_modus auf "Automatisch" steht. Bei "Aus"/"An"
+# lässt sie den Schalter komplett in Ruhe (manuelles Heizen ohne
+# Zurückschalten). Bis 09.10. lief das über den Zwischenschalter
+# input_boolean.balkonheizung_automatik_aktiv (samt Trigger
+# automatik_toggle); Verschlankung Schritt 2, live 09.10. ca. 21:55,
+# Hash 6ad90a6d8d78dd02 -> 6fd9fb39bf5cc67d, Helfer gelöscht 10.10.
 #
 # Nachtrag 27.09., 12:48-13:26 Uhr - reales Flatter-Fenster im Live-Betrieb
 # beobachtet: ~15 automatische Ein/Aus-Zyklen im 5-Minuten-Takt, OHNE jeden
@@ -216,9 +218,10 @@
     Bis 05.10. galt: an unter -300 W (2 Min.), aus über -50 W (1 Min.); der
     Akku-Schutz ergab sich damals daraus, dass -5 W über -50 W liegt.
     Ausschalten bewusst ohne Batterie-voll-Bedingung (Normens Vorgabe vom
-    26.09.). input_boolean.balkonheizung_automatik_aktiv als manueller
-    Vorrang-Schalter: bei Aus fasst diese Automatisierung den Schalter nicht
-    an. Sonnenuntergang als Rückfallschutz im OFF-Zweig (nachts immer aus).
+    26.09.). Schaltet nur, wenn input_select.balkonheizung_modus auf
+    "Automatisch" steht; bei "Aus" und "An" fasst diese Automatisierung den
+    Schalter nicht an (seit 09.10. direkt, vorher über
+    input_boolean.balkonheizung_automatik_aktiv). Sonnenuntergang als Rückfallschutz im OFF-Zweig (nachts immer aus).
     condition:trigger-Gates verhindern Schalten über nicht entprellte Trigger;
     resync darf nur im OFF-Zweig schalten (seit 28.09.). Seit 01.10. schalten
     und melden beide Zweige nur, wenn sich der Zustand wirklich ändert.
@@ -247,10 +250,6 @@
       for:
         minutes: 2
       id: soc_wechsel
-    - trigger: state
-      entity_id:
-        - input_boolean.balkonheizung_automatik_aktiv
-      id: automatik_toggle
     - trigger: time_pattern
       minutes: "/5"
       id: resync
@@ -262,8 +261,8 @@
         - alias: "Überschuss vorhanden -> einschalten"
           conditions:
             - condition: state
-              entity_id: input_boolean.balkonheizung_automatik_aktiv
-              state: "on"
+              entity_id: input_select.balkonheizung_modus
+              state: "Automatisch"
             - condition: state
               entity_id: switch.mystrom_device
               state: "off"
@@ -293,8 +292,8 @@
         - alias: "Kein Überschuss mehr oder Gerät speist ins Haus -> ausschalten"
           conditions:
             - condition: state
-              entity_id: input_boolean.balkonheizung_automatik_aktiv
-              state: "on"
+              entity_id: input_select.balkonheizung_modus
+              state: "Automatisch"
             - condition: state
               entity_id: switch.mystrom_device
               state: "on"
