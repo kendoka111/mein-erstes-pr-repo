@@ -919,6 +919,32 @@ keine offene Reparaturmeldung zu Gielz.
 
 ---
 
+## Gielz-Release v20261007 gegen unseren Stand (12.10.2026)
+
+Strukturvergleich Upstream v20260824 → v20261007 (Automation und Paket):
+- **Notaus-Zweig** (`actions[1].choose[13]`): gleicher Fix wie unser G6
+  (Ein-Element-Listen statt Mehr-Element-Liste mit `for`). Nichts Neues.
+- **SOC-Schutzladung** (`actions[1].choose[2]`): Upstream schaltet die
+  bisher deaktivierte Bedingung ein (Sonnenaufgang +2 h bis
+  Sonnenuntergang −2 h ODER Zähler unter `start_charging_at`). Das ist die
+  Variante, die Dr. Schmidt am 01.10. abgelehnt hat: Sie sperrt auch den
+  Stopp-Befehl, in „Standby“/„Smart Discharge Only“ liefe eine
+  angefangene Netzladung bis 95 %; die Einspeise-Hälfte startet
+  Netzladung trotz Überschuss. Unser G3 (Start 11–15 Uhr, Stopp
+  ungegatet) bleibt besser.
+- **Manual-Modus** (`actions[3].choose[0/1]`): doppelte Trigger-Bedingung
+  entfernt, ohne Wirkung. Nutzen wir nicht.
+- **Paket:** Entladepuffer darf negativ sein (min −100), Akkutyp 240
+  (1,92 kWh) ergänzt, Versionsnummer. Für uns ohne Bedeutung.
+- **Dashboard:** nur Texte.
+
+**Entscheidung:** nicht einspielen. Falls Gielz doch einmal neu
+eingespielt wird: G1, G2, G5 neu setzen, G6 ist upstream enthalten, die
+upstream aktivierte Bedingung in `choose[2]` wieder löschen und G3 neu
+setzen (G4 entspricht dann diesem Löschen).
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
