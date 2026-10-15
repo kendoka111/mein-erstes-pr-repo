@@ -966,6 +966,37 @@ setzen (G4 entspricht dann diesem Löschen).
 
 ---
 
+## Max-SOC 95 → 100 % (15.10.2026)
+
+- Normens Auftrag nach der nächtlichen Schutzladung: Obergrenze auf 100 %,
+  wenn Dr. Schmidt keine Einwände hat. Dr. Schmidt: FREIGABE MIT AUFLAGEN.
+- Grund: LiFePO4 (SF 2400 Pro, Händler-Datenblatt). Die SOC-Schätzung
+  gleicht sich nur an den Spannungsknicken ab. Zuletzt 100 % am 25.09.,
+  genau dann wurde `sensor.zendure_last_calibration` gestempelt; seit
+  26.09. Tagesmaximum ≤ 95 %. Dazu ca. 120 Wh mehr an Volltagen. Nachteil:
+  etwas mehr Kalenderalterung bei Standzeit auf 100 %, bei LFP und
+  26–31 °C vertretbar.
+- Umsetzung (A1): `input_number.set_value` auf
+  `input_number.zendure_setting_maximum_allowed_state_of_charge` = 100,
+  15.10. 20:28:39. Gielz `choose[3]` sendet `socSet` 1000.
+- Abnahme sofort (A2): `sensor.zendure_maximum_state_of_charge` = 100 um
+  20:28:42 (3 s); zwei Logbucheinträge „adjusted to 100%“ (Trigger und
+  ein Abgleich-Takt); Modus Smart Matching, Status Normal Operation,
+  Min-SOC 18 unverändert.
+- Offen: A3 erster Volltag – SOC bei Eintritt/Austritt „Charging Limit
+  Reached“ protokollieren (bisher Austritt bei 93 % = Limit −2), bei
+  Bypass-Autolösung Dauer bis Normal Operation und Wh. A4 – nach dem
+  ersten Erreichen von 100 % muss `sensor.zendure_last_calibration` neu
+  gestempelt sein; nach 2 Vollladungen ohne Stempel neu entscheiden
+  (zurück auf 95 oder nur periodisch 100). A5 – danach 93-%-Angaben in
+  den Beschreibungen von Bypass-Autolösung und Heizung anpassen.
+- Bekannte Unschärfe: `analysen/akku_erweiterung/prep.py` erkennt
+  Drosselung an `soc_max >= 93`; ab 15.10. zählen dort auch Stunden mit
+  93–99 % bei noch ladendem Akku.
+- Rückweg: denselben Helfer auf 95 setzen.
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
