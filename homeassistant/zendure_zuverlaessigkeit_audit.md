@@ -945,6 +945,27 @@ setzen (G4 entspricht dann diesem Löschen).
 
 ---
 
+## Nächtliche Netzladung 15.10.2026, 02:19–02:28 Uhr (Geräteschutz, nicht Gielz)
+
+- Ablauf: Modus Smart Charge Only, Akku in Standby, SOC 18 %, Spannung
+  47,5 V. Zwischen 02:14 und 02:18 fiel der SOC ohne Entladung von 18 auf
+  13 % (Korrektur der SOC-Schätzung durch das Batteriemanagement). Ab
+  02:18:59 lud das Gerät selbst mit ca. 1.230 W aus dem Netz bis 20 %
+  (02:28:16), rund 0,2 kWh.
+- Gielz hat keinen Ladebefehl gesendet: `sensor.zendure_set_charge_power`
+  blieb 0, im Logbuch kein Ladeeintrag. Gielz meldete nur „Switch storage
+  mode to RAM“ (02:19:00), als Reaktion auf den Netzbezug. G3 (11–15 Uhr)
+  hat also gehalten.
+- Einordnung: Tiefentladeschutz der Gerätefirmware, über HA nicht
+  abschaltbar und auch nicht abzuschalten (schützt die Zellen). Seit 02.10.
+  die einzige nächtliche Netzladung (Prüfung `zendure_power_import`,
+  Stundenmaxima 00–06 Uhr).
+- Beobachten: Tritt das öfter auf, Min-SOC auf 20 % anheben oder eine
+  Vollladung auf 100 % zur Kalibrierung prüfen (letzte Kalibrierung
+  25.09.).
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
