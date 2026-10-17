@@ -997,6 +997,50 @@ setzen (G4 entspricht dann diesem Löschen).
 
 ---
 
+## Wochenrückblick 10.–17.10.2026
+
+**Grundzustand:** Gielz an, Hash `67885ea906ee1618` (G1–G6) unverändert,
+auch nach dem Neustart 13.10. 12:41 (Core jetzt 2026.10.1). Keine
+Reparaturmeldungen. Nächtliche Netzladung nur die Geräteschutzladung
+15.10. 02:19 (sonst `zendure_power_import` 00–06 Uhr = 0,
+`set_charge_power` nie > 0).
+
+**Volltage („Charging Limit Reached“):** 12.10. 11:52–12:56 und 15.10.
+13:14–15:48. Bypass-Autolösung: Merker nie an.
+- 12.10.: Beim Eintritt fiel die PV für ca. 40 s auf 25 W und lief bis
+  650 W wieder hoch (DC-Abschaltung des Geräts). G5 wirkte:
+  „Starting“ 258/314/364 W bei PV 45/128/222 W (≥ PV + 75). Netzbezug
+  ca. 20 s, kein Hänger > 1 Min. Heizung ab 11:54:49 (Trigger
+  soc_wechsel), aus 12:52:24 über `zendure_speist` (Akkuschutz) –
+  wie vorgesehen. → **Volltag ohne Lösungslauf Nr. 1.**
+- 15.10.: **Hänger 15:41:23–15:43:31** (100–160 W Netzbezug, ca. 2 Min.):
+  Gerät schlief (Flash), Wecken 15:42:18, danach 73 s Bypass, weil
+  „Starting“ 80–124 W unter der PV (180–215 W) lag. **Ursache:
+  `switch.mystrom_device` ist seit 14.10. 06:36 `unavailable`** („No
+  route to myStrom plug“). G5 prüft `is_state(…, 'off')` und ist damit
+  abgeschaltet; die Bypass-Autolösung prüft ebenfalls `off` und war
+  ebenfalls blockiert. → Tag zählt nicht für Schritt 7.
+
+**Heizung Schritt 2:** Endabnahme bestanden – 12.10. 11:54:49 „☀️
+PV-Überschuss: Balkonheizung eingeschaltet“ im Modus „Automatisch“
+(An-Zweig mit Modus-Bedingung), keine Meldungen zum gelöschten Helfer.
+
+**Max-SOC 100 %:** `sensor.zendure_maximum_state_of_charge` = 100. Seit
+der Umstellung kein Volltag (16./17.10. trüb) → A3/A4 offen,
+`last_calibration` weiter 25.09.
+
+**Startschwelle Laden (−300 W):** Einspeisung bei nicht vollem Akku
+10.–16.10. zusammen ca. 0,22 kWh (5-Min-Mittel), also ca. 3 €/Jahr.
+Keine Änderung nötig.
+
+**Offen:** myStrom-Stecker prüfen (Normen). Vorschlag zur Härtung:
+G5-Gate und Autolösung auf `not is_state('switch.mystrom_device','on')`
+umstellen, damit ein nicht erreichbarer Stecker G5 nicht abschaltet –
+nur nach Normens Ja und Dr.-Schmidt-Prüfung (Risiko: Heizung läuft,
+obwohl unerreichbar).
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
