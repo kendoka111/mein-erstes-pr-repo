@@ -1,0 +1,44 @@
+# Live-Stand automation.balkonheizung_moduswahl_aus_an_automatisch, gelesen 07.10.2026, config_hash 101834b6f2b95701
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: balkon_heizung_moduswahl
+  alias: 'Balkonheizung: Moduswahl (Aus/An/Automatisch)'
+  description: 'Bildet input_select.balkonheizung_modus auf die beiden eigentlichen Steuer-Entities ab: input_boolean.balkonheizung_automatik_aktiv (Vorrang-Schalter der Ueberschuss-Automatisierung) und switch.mystrom_device (das Panel selbst). ''Aus'' und ''An'' schalten die Automatik ab und setzen das Panel manuell fest; ''Automatisch'' aktiviert die Automatik wieder - automation.balkonheizung_pv_uberschuss uebernimmt danach die Steuerung des Panels anhand der Netzeinspeisung. Keine Rueck-Synchronisation in die andere Richtung (bewusst einfach gehalten): wer das Panel oder die Automatik direkt umschaltet, muss den Modus-Schalter separat nachziehen.'
+  triggers:
+  - entity_id:
+    - input_select.balkonheizung_modus
+    trigger: state
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_select.balkonheizung_modus
+        state: Aus
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.balkonheizung_automatik_aktiv
+      - action: switch.turn_off
+        target:
+          entity_id: switch.mystrom_device
+    - conditions:
+      - condition: state
+        entity_id: input_select.balkonheizung_modus
+        state: An
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.balkonheizung_automatik_aktiv
+      - action: switch.turn_on
+        target:
+          entity_id: switch.mystrom_device
+    - conditions:
+      - condition: state
+        entity_id: input_select.balkonheizung_modus
+        state: Automatisch
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.balkonheizung_automatik_aktiv
+    default: []
+  max_exceeded: silent
+  mode: single

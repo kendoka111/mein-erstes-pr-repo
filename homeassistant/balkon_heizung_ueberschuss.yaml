@@ -1,0 +1,326 @@
+# Balkonheizung: PV-Überschuss (26.09.2026)
+#
+# Hintergrund: Das myStrom-Panel auf dem Balkon (switch.mystrom_device,
+# ~300 W Leistungsaufnahme laut sensor.mystrom_device_leistung) wurde neu
+# angeschlossen. Ziel: es soll nur dann heizen, wenn echter PV-Überschuss
+# besteht, statt Netzstrom zu verheizen.
+#
+# Wie "Überschuss" hier erkannt wird (Korrektur nach Normens Vorgabe -
+# ursprünglich fälschlich auf "kein Netzbezug" statt auf echte
+# Netzeinspeisung ausgelegt, siehe unten): sensor.zendure_soc_limit_status
+# == "Charging Limit Reached" (Akku voll, kann nichts mehr aufnehmen) UND
+# sensor.home_energy_meter_power < -300 (das Haus speist bereits mehr als
+# 300 W ins Netz ein - Vorzeichenkonvention in diesem System: positiv =
+# Netzbezug, negativ = Netzeinspeisung). Zum Zeitpunkt der Einrichtung war
+# Netzeinspeisung erlaubt (sensor.zendure_pv_export_mode == "Allow",
+# input_boolean.zendure_setting_pv_export_disabled == off) und tatsächlich
+# im Tagesverlauf bis -562 W belegt - der Ansatz ist also nicht nur
+# theoretisch, sondern beobachtet scharf.
+#
+# Ein-Schwelle -300 W (mehr als 300 W Einspeisung) / Aus-Schwelle -50 W
+# (Einspeisung fällt unter 50 W; bis 28.09. abends -200 W, siehe Nachtrag
+# unten) mit Debounce (2 Min. an, 1 Min. aus - "Zeit
+# x" laut Normens Vorgabe) auf den numeric_state-Triggern - Lehre aus dem
+# Zendure-Vorfall vom 26.09. (Flatter-Fenster 15:53-16:44 Uhr bei Werten
+# knapp um eine Schwelle). numeric_state als CONDITION unterstützt kein
+# 'for' (im Gegensatz zum numeric_state-TRIGGER und zur state-CONDITION) -
+# deshalb sitzt der Debounce auf den Triggern, die Bedingungen prüfen nur
+# den aktuellen Momentanwert.
+#
+# Dr.-Schmidt-Fund (26.09., vor Freigabe): Weil die choose-Bedingungen nur
+# den Momentanwert prüfen, konnte JEDER der sechs Trigger (nicht nur der
+# debounced ueberschuss_an/netzbezug_aus) das Ein-/Ausschalten auslösen -
+# z. B. wenn soc_wechsel genau während einer kurzen Rauschspitze von
+# home_energy_meter_power feuert. Belegt anhand der eigenen Live-Historie
+# (18:00-18:11 Uhr: Sprünge zwischen -79,6 W und +70,4 W innerhalb von
+# Millisekunden) und des dokumentierten Flatter-Fensters oben. Fix:
+# (1) soc_wechsel bekommt ein eigenes for: 2 Minuten (gleiches Muster wie
+# der resync-Trigger in zendure_ausgangsleistung_dynamisch.yaml), (2) beide
+# choose-Zweige bekommen zusätzlich eine condition: trigger, die das
+# Ein-/Ausschalten auf die bereits debounced Trigger (plus Resync-Ticks,
+# und - seit Runde 2 symmetrisch in beiden Zweigen - den jetzt selbst
+# debounced soc_wechsel) beschränkt. automatik_toggle bleibt bewusst ohne
+# eigenes for (sofortige Neubewertung bei manuellem Umschalten), löst wegen
+# der Trigger-Sperre aber selbst kein Schalten mehr aus - im schlechtesten
+# Fall zieht ein frisch aktiviertes Automatik-Flag erst beim nächsten
+# Resync-Tick (max. 5 Minuten) nach, was hier als unkritisch bewertet
+# wurde.
+#
+# Dr.-Schmidt-Fund Runde 2: soc_wechsel fehlte anfangs unbegründet in der
+# ON-Zweig-Trigger-Liste, obwohl er seit Fix 1 genauso 2-Minuten-debounced
+# ist wie im OFF-Zweig bereits berücksichtigt - eine unnötige, nicht
+# reflektierte Asymmetrie (bis zu 5 Min. Verzögerung beim Einschalten trotz
+# technisch gleichwertig abgesichertem Trigger). Behoben durch symmetrische
+# Aufnahme in beide Zweige. Runde 2 damit final freigegeben
+# (config_hash 4a7c95d0880e2691).
+#
+# Nachtrag 26.09., 21:5x Uhr - Schwellen-Korrektur (nach Freigabe, vor
+# echtem Testlauf bei Tageslicht): Die freigegebene Version nutzte fälschlich
+# "kein Netzbezug" (< 20 W Import) als Überschuss-Maßstab statt echter
+# Einspeisung. Normen hat das richtiggestellt: an bei > 300 W Einspeisung,
+# aus bei < 200 W Einspeisung (1 Minute bestätigt). Nur die Schwellenwerte
+# und Vorzeichen wurden geändert (20 -> -300, 150 -> -200), die gesamte
+# Debounce-/Trigger-Gate-Struktur aus beiden Dr.-Schmidt-Runden bleibt
+# unverändert bestehen. Vor dem erneuten Scharfschalten nochmals kurz von
+# Dr. Schmidt gegengeprüft.
+#
+# Nachtrag 26.09., 22:0x Uhr - Batterie-voll-Bedingung beim Ausschalten
+# entfernt: Normens Vorgabe war "nur Ein/Aus über Netzeinspeisung, ohne
+# Batterie-voll-Bedingung beim Ausschalten" - der vorherige Stand hatte
+# noch "ODER Batterie nicht mehr voll" als zusätzlichen Ausschaltgrund im
+# OR-Block, was so nie verlangt war. Entfernt: der OFF-Zweig schaltet jetzt
+# ausschließlich über die Einspeisungsschwelle (bzw. den Nacht-Fallback)
+# aus, unabhängig vom Ladezustand der Batterie. Die Ein-Bedingung bleibt
+# unverändert an "Batterie voll UND Einspeisung > 300 W" gebunden -
+# Normens Vorgabe betraf ausdrücklich nur die Aus-Seite.
+#
+# Sonnenauf-/-untergang als zusätzlicher Rückfallschutz: falls
+# soc_limit_status einfriert (Fehlerklasse 3, Sensor-Freeze nach
+# REST-Reload), verhindert das ein nächtliches Einschalten durch eine
+# veraltete "Charging Limit Reached"-Anzeige.
+#
+# Modus-Sperre: Diese Automatisierung schaltet nur, wenn
+# input_select.balkonheizung_modus auf "Automatisch" steht. Bei "Aus"/"An"
+# lässt sie den Schalter komplett in Ruhe (manuelles Heizen ohne
+# Zurückschalten). Bis 09.10. lief das über den Zwischenschalter
+# input_boolean.balkonheizung_automatik_aktiv (samt Trigger
+# automatik_toggle); Verschlankung Schritt 2, live 09.10. ca. 21:55,
+# Hash 6ad90a6d8d78dd02 -> 6fd9fb39bf5cc67d, Helfer gelöscht 10.10.
+#
+# Nachtrag 27.09., 12:48-13:26 Uhr - reales Flatter-Fenster im Live-Betrieb
+# beobachtet: ~15 automatische Ein/Aus-Zyklen im 5-Minuten-Takt, OHNE jeden
+# manuellen Eingriff (input_select.balkonheizung_modus stand die ganze Zeit
+# auf "Automatisch", per Verlaufsabfrage bestätigt). Musterbild: "Ein" fiel
+# exakt auf die :00/:05/:10/:15-Marken (= resync-Tick), "Aus" folgte jeweils
+# ca. 1 Minute später (= netzbezug_aus-Trigger, der volle 1-Minuten-Debounce
+# durchlief). Erklärung: genau das von Dr. Schmidt als "gering, nicht
+# blockierend" eingestufte Restrisiko aus Runde 2 - der resync-Tick prüft
+# den ON-Zweig ungegatet auf den Momentanwert und traf in diesem Fenster
+# wiederholt eine Einspeisungs-Spitze über -300 W, kurz bevor die Einspeisung
+# wieder unter -200 W fiel. Trat deutlich öfter auf als als Randfall erwartet
+# - vermutlich weil die Einspeisung an diesem Mittag tatsächlich knapp um die
+# Schwelle pendelte.
+#
+# Fix (28.09.): resync aus der ON-Zweig-Trigger-Liste entfernt. Einschalten
+# ist jetzt nur noch über den 2-Minuten-bestätigten ueberschuss_an-Trigger
+# oder den ebenso 2-Minuten-bestätigten soc_wechsel-Trigger möglich - nie
+# mehr über einen ungegateten Momentanwert-Check. Der OFF-Zweig behält
+# resync (sichere Richtung: ein verpasster Ausschalt-Zyklus kostet nur ein
+# paar Minuten unnötige Heizung, kein Fehlschalten). Nebenwirkung: ein frisch
+# aktiviertes Automatik-Flag (automatik_toggle) oder ein HA-Neustart
+# (homeassistant: start, beides in "resync" enthalten) kann das Einschalten
+# jetzt bis zu 2 Minuten (nächster echter Trigger) statt sofort nachziehen -
+# bewusst in Kauf genommen, da unkritisch (Komfort-Verzögerung, keine
+# Sicherheitsfrage). Diese Runde nur durch Normen und mich selbst geprüft,
+# nicht durch Dr. Schmidt (Agent zum Zeitpunkt des Fixes nicht verfügbar) -
+# die Änderung ist aber rein einschränkend (ein Eintrag aus einer
+# Erlaubnisliste entfernt, keine neue Bedingung/kein neuer Pfad hinzugefügt)
+# und kann daher strukturell kein neues Race einführen.
+#
+# Nachtrag 28.09. abends - Rückkopplungs-Flattern, Aus-Schwelle -200 -> -50:
+# 12:13-13:22 Uhr schaltete die Automatik 13 Mal ein und 14 Mal aus, jeweils
+# nach ~1 Minute - diesmal über die echten, debounced Trigger
+# (ueberschuss_an/netzbezug_aus), nicht über resync. Ursache ist
+# physikalisch: das Panel zieht ~295 W, der Abstand zwischen Ein- und
+# Ausschaltpunkt betrug aber nur 100 W. Einschalten drückte die Einspeisung
+# von > 300 W auf < 200 W, das löste nach 1 Minute das Ausschalten aus,
+# danach stieg sie wieder über 300 W.
+# Normens Vorgabe: Einschalten bleibt bei 300 W, Ausschalten bei unter 50 W
+# Einspeisung - nur die zwei Schwellen geändert, keine neuen Helfer oder
+# Trigger. Nachgerechnet mit den Zählerdaten 12:00-13:35 (Dr.-Schmidt-
+# Simulation, validiert an allen 27 realen Schaltvorgängen): 2 statt 13
+# Einschaltungen, Panel läuft 12:28-13:08 durch.
+# Bekannter Restfall: der Abstand (250 W) ist kleiner als die Panel-Last.
+# Liegt der Überschuss ohne Panel genau zwischen 300 und ~345 W, kann es
+# weiter takten (heute einmal: 13:21:50 an, 13:22:52 aus) - deutlich
+# seltener als vorher (Band 45 W statt 195 W). Auf Normens Wunsch so belassen.
+# Akku-Schutz geprüft (Dr.-Schmidt-Fund): deckt der Akku das Panel, regelt
+# Gielz das Netz auf ca. -5 W (discharge_buffer 5 W). Mit der Schwelle -50 W
+# hätte netzbezug_aus im Entladefenster 16:00-16:30 Uhr 8 Mal ausgelöst,
+# das erste Mal nach 4 Minuten - das Panel heizt den Akku also nicht leer.
+# (Die zwischenzeitlich erwogene Variante "aus erst bei Netzbezug > 0 W"
+# hätte genau das nicht erkannt und wurde deshalb verworfen.)
+# Live eingespielt 28.09. abends, config_hash vorher 40d99463bdcb7f50,
+# nachher 29527419542ebca4 (Trigger, Bedingungen und description mit
+# dieser Datei abgeglichen).
+
+# Nachtrag 01.10. - Logbuch-Spam: Der OFF-Zweig lief bei jedem
+# 5-Min.-Resync durch (nachts immer erfüllt über die sun-Bedingung) und
+# schrieb jedes Mal "Kein PV-Überschuss mehr: Balkonheizung ausgeschaltet"
+# ins Logbuch, auch wenn das Panel längst aus war (148 Einträge in 12 h).
+# Das ON-Zweig-Gegenstück: doppelte "eingeschaltet"-Meldungen, z. B. 29.09.
+# 12:05:40/12:05:41. Fix (Normens Wunsch): ON-Zweig nur bei
+# switch.mystrom_device = off, OFF-Zweig nur bei = on. Rein einschränkend,
+# es entsteht kein neuer Schaltpfad. Ist der Schalter unavailable, schaltet
+# keiner der Zweige; der nächste Resync-Tick holt das nach.
+# config_hash vorher 29527419542ebca4, nachher 7d6da0c851ac9711.
+
+# Bei Einrichtung (26.09., 21:xx Uhr) lief das Panel bereits manuell
+# (298 W, nachts, ohne PV, Akku im Entlade-Limit bei 18 % SOC) - reines
+# Netzheizen. Nach Rücksprache mit Normen soll die Automatisierung das
+# sofort korrigieren (Panel aus, da kein Überschuss).
+
+# Nachtrag 05.10. - Einschalten schon ab 260 W Einspeisung (Normens Wunsch:
+# lieber 30-50 W Netzbezug als 250 W verschenken). Fassung exakt nach
+# Dr.-Schmidt-Empfehlung (Variante B, FREIGABE MIT AUFLAGEN):
+# - an: Einspeisung über 260 W, 5 Min. bestätigt (vorher 300 W / 2 Min.).
+#   Mit Panel (~295 W) bleibt der Netzbezug danach bei höchstens ~35 W.
+# - aus: Netzbezug über +50 W, 2 Min. bestätigt (vorher Einspeisung unter
+#   50 W / 1 Min.).
+# - NEU aus: Trigger zendure_speist (sensor.zendure_power unter -50 W, 1 Min.).
+#   Grund: Der bisherige Akku-Schutz ergab sich nebenbei aus der -50-W-
+#   Schwelle (Gielz regelt bei Akku-Abgabe auf ca. -5 W). Mit +50 W greift
+#   das nicht mehr; ohne neuen Trigger hätte das Panel z. B. am 04.10.
+#   15:25-20:30 Uhr am Akku gehangen. ON-Zweig zusätzlich: zendure_power
+#   über -50 W.
+# - Wichtig: sensor.zendure_power ist die Ausgangsleistung des Geräts ins Haus
+#   (aus PV und/oder Akku), NICHT die Akkuleistung. Beleg 05.10. 09:27-11:02:
+#   "Discharging" mit -69 bis -200 W, gleichzeitig SOC 43 -> 95 %. Im Bypass
+#   am SOC-Limit steht er auf 0 W; > 50 W Abgabe bei laufendem Panel heißt
+#   also: Gerät hat den Bypass verlassen, Akku beteiligt.
+# - Simulation Dr. Schmidt (6 Tage mit "Charging Limit Reached", validiert an
+#   16 realen Schaltvorgängen auf +-1 s), gegenüber 300/-50:
+#   Einschaltungen 24 -> 14 (je Tag mit "Charging Limit Reached" 4,0 -> 2,3;
+#   je Kalendertag 26.09.-05.10. 2,5 -> 1,5), Kurzzyklen unter
+#   10 Min. 13 -> 4, Heizenergie +0,21 kWh, Netzbezug +0,063 kWh (ca. 2 ct),
+#   Einspeisung -0,15 kWh. Der Gewinn liegt vor allem im ruhigeren Schalten.
+# - Zugehörige Auflage umgesetzt: Die Bypass-Autolösung
+#   (zendure_bypass_autoloesung.yaml) greift nur noch bei Panel aus, sonst
+#   hielte sie den Panelstrom für echten Bedarf (3 Fehlauslösungen in den
+#   Daten).
+# - Live eingespielt 05.10. ca. 14:29 Uhr, config_hash vorher
+#   7d6da0c851ac9711, nachher 6ad90a6d8d78dd02.
+# - Abnahme 06.10. bestanden: 10:59:01 an über soc_wechsel, 13:28:10 aus
+#   über netzbezug_aus, 2,48 h am Stück, Netzbezug im Lauf 5 Wh, über +50 W
+#   nur die 2 Ausschalt-Minuten, zendure_speist nicht ausgelöst, keine
+#   Bypass-Autolösung bei laufendem Panel. Details im Audit.
+
+- id: balkon_heizung_ueberschuss
+  alias: "Balkonheizung: PV-Überschuss"
+  description: >-
+    Schaltet die Balkonheizung (switch.mystrom_device, ca. 295 W) ein, wenn die
+    Zendure-Batterie voll ist (sensor.zendure_soc_limit_status = "Charging Limit
+    Reached"), das Zendure-Gerät nichts ins Haus abgibt (sensor.zendure_power
+    über -50 W) und das Haus mehr als 260 W ins Netz einspeist
+    (sensor.home_energy_meter_power unter -260 W, 5 Min. bestätigt). Nach dem
+    Einschalten bezieht das Haus damit höchstens etwa 35 W aus dem Netz.
+    Ausgeschaltet wird, wenn der Netzbezug über 50 W steigt (2 Min. bestätigt)
+    oder wenn das Zendure-Gerät Strom ins Haus abgibt (sensor.zendure_power
+    unter -50 W, 1 Min. bestätigt). Normens Vorgabe vom 05.10.: lieber 30 bis
+    50 W Netzbezug als 250 W Einspeisung verschenken (keine Vergütung,
+    Strompreis 0,30 EUR/kWh). Der zweite Ausschaltgrund ist der Akku-Schutz:
+    Verlässt das Gerät den Bypass (Gielz-Entladestart mit outputLimit über der
+    PV, Quick Discharge der Bypass-Autolösung, SOC unter 93 %), regelt Gielz
+    das Netz auf etwa -5 W. Die 50-W-Schwelle greift dann nicht mehr, ohne den
+    zweiten Grund würde der Akku das Panel speisen. sensor.zendure_power ist
+    die Ausgangsleistung des Geräts ins Haus (negativ = Abgabe aus PV und/oder
+    Akku), nicht die Akkuleistung; im Bypass am SOC-Limit steht er auf 0 W.
+    Bis 05.10. galt: an unter -300 W (2 Min.), aus über -50 W (1 Min.); der
+    Akku-Schutz ergab sich damals daraus, dass -5 W über -50 W liegt.
+    Ausschalten bewusst ohne Batterie-voll-Bedingung (Normens Vorgabe vom
+    26.09.). Schaltet nur, wenn input_select.balkonheizung_modus auf
+    "Automatisch" steht; bei "Aus" und "An" fasst diese Automatisierung den
+    Schalter nicht an (seit 09.10. direkt, vorher über
+    input_boolean.balkonheizung_automatik_aktiv). Sonnenuntergang als Rückfallschutz im OFF-Zweig (nachts immer aus).
+    condition:trigger-Gates verhindern Schalten über nicht entprellte Trigger;
+    resync darf nur im OFF-Zweig schalten (seit 28.09.). Seit 01.10. schalten
+    und melden beide Zweige nur, wenn sich der Zustand wirklich ändert.
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.home_energy_meter_power
+      below: -260
+      for:
+        minutes: 5
+      id: ueberschuss_an
+    - trigger: numeric_state
+      entity_id: sensor.home_energy_meter_power
+      above: 50
+      for:
+        minutes: 2
+      id: netzbezug_aus
+    - trigger: numeric_state
+      entity_id: sensor.zendure_power
+      below: -50
+      for:
+        minutes: 1
+      id: zendure_speist
+    - trigger: state
+      entity_id:
+        - sensor.zendure_soc_limit_status
+      for:
+        minutes: 2
+      id: soc_wechsel
+    - trigger: time_pattern
+      minutes: "/5"
+      id: resync
+    - trigger: homeassistant
+      event: start
+      id: resync
+  actions:
+    - choose:
+        - alias: "Überschuss vorhanden -> einschalten"
+          conditions:
+            - condition: state
+              entity_id: input_select.balkonheizung_modus
+              state: "Automatisch"
+            - condition: state
+              entity_id: switch.mystrom_device
+              state: "off"
+            - condition: state
+              entity_id: sensor.zendure_soc_limit_status
+              state: "Charging Limit Reached"
+            - condition: numeric_state
+              entity_id: sensor.home_energy_meter_power
+              below: -260
+            - condition: numeric_state
+              entity_id: sensor.zendure_power
+              above: -50
+            - condition: sun
+              after: sunrise
+              before: sunset
+            - condition: trigger
+              id: ["ueberschuss_an", "soc_wechsel"]
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.mystrom_device
+            - action: logbook.log
+              data:
+                message: "☀️ PV-Überschuss: Balkonheizung eingeschaltet"
+                entity_id: switch.mystrom_device
+                name: " "
+        - alias: "Kein Überschuss mehr oder Gerät speist ins Haus -> ausschalten"
+          conditions:
+            - condition: state
+              entity_id: input_select.balkonheizung_modus
+              state: "Automatisch"
+            - condition: state
+              entity_id: switch.mystrom_device
+              state: "on"
+            - condition: or
+              conditions:
+                - condition: numeric_state
+                  entity_id: sensor.home_energy_meter_power
+                  above: 50
+                - condition: numeric_state
+                  entity_id: sensor.zendure_power
+                  below: -50
+                - condition: sun
+                  after: sunset
+                  before: sunrise
+            - condition: trigger
+              id: ["netzbezug_aus", "zendure_speist", "resync", "soc_wechsel"]
+          sequence:
+            - action: switch.turn_off
+              target:
+                entity_id: switch.mystrom_device
+            - action: logbook.log
+              data:
+                message: "🌙 Kein PV-Überschuss mehr: Balkonheizung ausgeschaltet"
+                entity_id: switch.mystrom_device
+                name: " "
+      default: []
+  mode: single
+  max_exceeded: silent
+  trace:
+    stored_traces: 256
