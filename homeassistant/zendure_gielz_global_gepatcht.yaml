@@ -1,4 +1,5 @@
-# Live-Stand automation.zendure_zensdk_gielz_global mit lokalen Patches G1-G6, config_hash 67885ea906ee1618 (10.10.2026)
+# Live-Stand automation.zendure_zensdk_gielz_global mit lokalen Patches G1-G7, config_hash bd38f04c4ae8274c (19.10.2026)
+# G7 (19.10.): G5-Gate 'not is_state(switch.mystrom_device, on)' statt 'off', damit ein unerreichbarer Heizungsstecker G5 nicht abschaltet.
 # G6 (10.10.): actions[1].choose[13].conditions[1] als or aus zwei state-Bedingungen, weil HA 2026.10 'for' mit Zustandsliste verbietet.
 # Exakte Kopie; zum Wiedereinspielen siehe VERSCHLANKUNG_PLAN.md / gielz_lokale_patches.md.
 - id: '1787734651777'
@@ -920,12 +921,12 @@
           sn: '{{ states(''sensor.zendure_serial_number'') }}'
           outputLimit: |-
             {% set factor = 0.75 %}  {% set cap = states('input_number.zendure_setting_max_discharge_power') | float(0) %} {% set correctie = -1 * (states('input_number.zendure_setting_discharge_buffer') | float(0)) %} {% set p1 = states('sensor.home_energy_meter_power') | float(0) %}  {% set zendure = states('sensor.zendure_power') | float(0) %}
-            {% set totaal = (p1 - zendure - correctie) * factor %} {% if is_state('sensor.zendure_soc_limit_status', 'Charging Limit Reached') and is_state('switch.mystrom_device', 'off') %}{% set totaal = totaal + (states('sensor.zendure_power_pv_total') | float(0)) %}{% endif %} {% set beperkt = [ [totaal, 0] | max, cap ] | min %}
+            {% set totaal = (p1 - zendure - correctie) * factor %} {% if is_state('sensor.zendure_soc_limit_status', 'Charging Limit Reached') and not is_state('switch.mystrom_device', 'on') %}{% set totaal = totaal + (states('sensor.zendure_power_pv_total') | float(0)) %}{% endif %} {% set beperkt = [ [totaal, 0] | max, cap ] | min %}
             {{ beperkt | int }}
         action: rest_command.zendure_x_discharge
       - action: logbook.log
         data:
-          message: "\U0001F50BDischarging (Starting) — Power set to {% set factor = 0.75 %} \n  {% set cap = states('input_number.zendure_setting_max_discharge_power') | float(0) %}\n  {% set correctie = -1 * (states('input_number.zendure_setting_discharge_buffer') | float(0)) %}\n  {% set p1 = states('sensor.home_energy_meter_power') | float(0) %} \n  {% set zendure = states('sensor.zendure_power') | float(0) %}\n\n  {% set totaal = (p1 - zendure - correctie) * factor %} {% if is_state('sensor.zendure_soc_limit_status', 'Charging Limit Reached') and is_state('switch.mystrom_device', 'off') %}{% set totaal = totaal + (states('sensor.zendure_power_pv_total') | float(0)) %}{% endif %} {% set beperkt = [\n  [totaal, 0] | max, cap ] | min %} {{ beperkt | int }} watt —\n"
+          message: "\U0001F50BDischarging (Starting) — Power set to {% set factor = 0.75 %} \n  {% set cap = states('input_number.zendure_setting_max_discharge_power') | float(0) %}\n  {% set correctie = -1 * (states('input_number.zendure_setting_discharge_buffer') | float(0)) %}\n  {% set p1 = states('sensor.home_energy_meter_power') | float(0) %} \n  {% set zendure = states('sensor.zendure_power') | float(0) %}\n\n  {% set totaal = (p1 - zendure - correctie) * factor %} {% if is_state('sensor.zendure_soc_limit_status', 'Charging Limit Reached') and not is_state('switch.mystrom_device', 'on') %}{% set totaal = totaal + (states('sensor.zendure_power_pv_total') | float(0)) %}{% endif %} {% set beperkt = [\n  [totaal, 0] | max, cap ] | min %} {{ beperkt | int }} watt —\n"
           entity_id: input_select.zendure_operation_mode
           name: ' '
       alias: Start discharging at +xxx watt (75% of demand)

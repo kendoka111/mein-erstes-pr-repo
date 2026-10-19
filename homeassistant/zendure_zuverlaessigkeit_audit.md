@@ -1049,6 +1049,39 @@ obwohl unerreichbar).
 
 ---
 
+## G7: unerreichbarer Heizungsstecker zählt als „aus“ (19.10.2026)
+
+- Anlass: Wochenrückblick 17.10. – `switch.mystrom_device` seit 14.10.
+  `unavailable`, weil Normen die Steckerleiste beim Wegfahren
+  ausgeschaltet hat. G5 und Bypass-Autolösung verlangten `off` und waren
+  damit inaktiv (Hänger 15.10. 15:41–15:43).
+- Normen: „Ja“. Dr. Schmidt: FREIGABE MIT AUFLAGEN (Risiko unerreichbar
+  bei laufendem Panel bewertet: in 10 Tagen nie aufgetreten, Zusatzwirkung
+  höchstens ca. 48 Wh je Fall; `sensor.mystrom_device_leistung` als Gate
+  abgelehnt, weil eingefroren statt unavailable).
+- Umsetzung 19.10. ca. 14:43:
+  - Gielz G7: in `actions[2].choose[0].sequence[0/1]` (outputLimit und
+    Logbuch) `is_state('switch.mystrom_device','off')` →
+    `not is_state('switch.mystrom_device','on')`. Hash
+    `67885ea906ee1618` → `bd38f04c4ae8274c`.
+  - Bypass-Autolösung: Signatur-Bedingung `state off` →
+    `not: state on`; Beschreibung aktualisiert (G5-Hinweis, Austritt
+    2 % unter Limit, ca. 48 Wh, unavailable/unknown). Hash
+    `3a1371d70ddfef97` → `00465b1fe5f4fa69`.
+  - Heizung: nur Beschreibung (93 % → 2 % unter Limit). Hash
+    `6fd9fb39bf5cc67d` → `5f40f8fb5b29588a`. Damit ist Auflage A5 vom
+    15.10. erledigt.
+- Abnahme sofort (A2/A3): alle drei „on“, keine neuen Fehler im Log;
+  outputLimit rendert als Ganzzahl und ist außerhalb des SOC-Limits gleich
+  der alten Formel (0 = 0 bei Einspeisung). Live-Test der Bedingung bei
+  `unavailable`: neu true, alt false.
+- Offen (A5 Dr. Schmidt): nächster Volltag mit unerreichbarem Stecker –
+  „Starting“ ≥ PV + 75 W, kein Hänger > 1 Min.; erst dann zählt der Tag
+  für Schritt 7.
+- Rückweg: denselben String bzw. dieselbe Bedingung zurücksetzen.
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im

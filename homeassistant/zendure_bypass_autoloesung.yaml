@@ -64,27 +64,29 @@
     Fehlerklasse 1. Am SOC-Limit ("Charging Limit Reached") laeuft das Geraet im
     Bypass. Die Akku-Entladung setzt nach den Daten vom 26.09. und 04.10. erst
     ein, wenn das gesendete outputLimit die PV-Leistung uebersteigt. Der
-    Gielz-Startzweig sendet 0,75 x (Netzbezug + 5 W) und liegt damit bei
-    Teillast unter der PV, also entlaedt der Akku nicht. Quick Discharge sendet
-    outputLimit = max_discharge_power (800 W bei vollem Akku) und haelt diesen
-    Wert, weil die Smart-Matching-Regelung in diesem Modus nicht laeuft.
-    Zurueck auf Smart Matching wird erst geschaltet, wenn soc_limit_status
-    "Normal Operation" meldet (beobachtet bei SOC 93 %), spaetestens aber
-    15 Min. nach Entladebeginn (seit 06.10.; vorher 90 s, Lauf 06.10. 16:13
-    daran gescheitert). Die Balkonheizung kann waehrend Quick Discharge nicht
-    einschalten, weil ihr Einschaltzweig sensor.zendure_power ueber -50 W
-    verlangt. Die Einspeisung pro Versuch ist durch die Akkuenergie bis SOC 93
-    begrenzt (hoechstens ca. 45 Wh). Ein frueher Rueckwechsel
-    schickt outputLimit 0 und beendet die Entladung wieder (26.09.,
-    13:52:08 -> 13:52:13). Hoechstens ein Versuch pro Stunde. Der Merker
-    sichert gegen Neustart oder Reload, solange Quick Discharge steht.
-    Der Waechter zendure_waechter_bypass_haenger bleibt unveraendert als
-    reiner Melder bestehen. Seit 05.10. (ca. 14:27 Uhr) greift die Signatur nur bei ausgeschalteter
-    Balkonheizung (switch.mystrom_device off): Bei laufendem Panel (ca. 295 W,
-    Heizung schaltet seit 05.10. erst bei ueber 50 W Netzbezug ab) haelt die
-    Signatur sonst den Panelstrom fuer echten Bedarf. Ein echter Haenger wird
-    spaetestens beim naechsten 5-Min.-Takt nach dem Abschalten des Panels
-    geloest.
+    Gielz-Startzweig sendete 0,75 x (Netzbezug + 5 W) und lag damit bei Teillast
+    unter der PV; seit 09.10. addiert Gielz-Patch G5 die PV, diese Automation
+    ist nur noch Rueckfallnetz. Quick Discharge sendet outputLimit =
+    max_discharge_power (800 W bei vollem Akku) und haelt diesen Wert, weil die
+    Smart-Matching-Regelung in diesem Modus nicht laeuft. Zurueck auf Smart
+    Matching wird erst geschaltet, wenn soc_limit_status "Normal Operation"
+    meldet (beobachtet 2 % unter dem Limit: 93 % bei Limit 95, 98 % bei Limit
+    100 seit 15.10.), spaetestens aber 15 Min. nach Entladebeginn (seit 06.10.;
+    vorher 90 s, Lauf 06.10. 16:13 daran gescheitert). Die Balkonheizung kann
+    waehrend Quick Discharge nicht einschalten, weil ihr Einschaltzweig
+    sensor.zendure_power ueber -50 W verlangt. Die Einspeisung pro Versuch ist
+    durch die Akkuenergie bis 2 % unter dem Limit begrenzt (ca. 48 Wh). Ein
+    frueher Rueckwechsel schickt outputLimit 0 und beendet die Entladung wieder
+    (26.09., 13:52:08 -> 13:52:13). Hoechstens ein Versuch pro Stunde. Der
+    Merker sichert gegen Neustart oder Reload, solange Quick Discharge steht.
+    Der Waechter zendure_waechter_bypass_haenger bleibt unveraendert als reiner
+    Melder bestehen. Seit 05.10. (ca. 14:27 Uhr) greift die Signatur nur bei
+    ausgeschalteter Balkonheizung (switch.mystrom_device nicht "on"; seit 19.10.
+    zaehlt "unavailable"/"unknown" wie aus, weil die Steckerleiste bei
+    Abwesenheit ausgeschaltet wird): Bei laufendem Panel (ca. 295 W, Heizung
+    schaltet seit 05.10. erst bei ueber 50 W Netzbezug ab) haelt die Signatur
+    sonst den Panelstrom fuer echten Bedarf. Ein echter Haenger wird spaetestens
+    beim naechsten 5-Min.-Takt nach dem Abschalten des Panels geloest.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.zendure_netzbezug_min_40s
@@ -131,9 +133,11 @@
             - condition: state
               entity_id: sensor.zendure_calibrating
               state: "No"
-            - condition: state
-              entity_id: switch.mystrom_device
-              state: "off"
+            - condition: not
+              conditions:
+                - condition: state
+                  entity_id: switch.mystrom_device
+                  state: "on"
   actions:
     - choose:
         - alias: "Aufraeumen nach Neustart oder abgebrochenem Lauf"

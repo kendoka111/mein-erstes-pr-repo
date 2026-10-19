@@ -206,25 +206,26 @@
     Einschalten bezieht das Haus damit höchstens etwa 35 W aus dem Netz.
     Ausgeschaltet wird, wenn der Netzbezug über 50 W steigt (2 Min. bestätigt)
     oder wenn das Zendure-Gerät Strom ins Haus abgibt (sensor.zendure_power
-    unter -50 W, 1 Min. bestätigt). Normens Vorgabe vom 05.10.: lieber 30 bis
-    50 W Netzbezug als 250 W Einspeisung verschenken (keine Vergütung,
-    Strompreis 0,30 EUR/kWh). Der zweite Ausschaltgrund ist der Akku-Schutz:
-    Verlässt das Gerät den Bypass (Gielz-Entladestart mit outputLimit über der
-    PV, Quick Discharge der Bypass-Autolösung, SOC unter 93 %), regelt Gielz
-    das Netz auf etwa -5 W. Die 50-W-Schwelle greift dann nicht mehr, ohne den
-    zweiten Grund würde der Akku das Panel speisen. sensor.zendure_power ist
-    die Ausgangsleistung des Geräts ins Haus (negativ = Abgabe aus PV und/oder
-    Akku), nicht die Akkuleistung; im Bypass am SOC-Limit steht er auf 0 W.
-    Bis 05.10. galt: an unter -300 W (2 Min.), aus über -50 W (1 Min.); der
-    Akku-Schutz ergab sich damals daraus, dass -5 W über -50 W liegt.
-    Ausschalten bewusst ohne Batterie-voll-Bedingung (Normens Vorgabe vom
-    26.09.). Schaltet nur, wenn input_select.balkonheizung_modus auf
-    "Automatisch" steht; bei "Aus" und "An" fasst diese Automatisierung den
-    Schalter nicht an (seit 09.10. direkt, vorher über
-    input_boolean.balkonheizung_automatik_aktiv). Sonnenuntergang als Rückfallschutz im OFF-Zweig (nachts immer aus).
-    condition:trigger-Gates verhindern Schalten über nicht entprellte Trigger;
-    resync darf nur im OFF-Zweig schalten (seit 28.09.). Seit 01.10. schalten
-    und melden beide Zweige nur, wenn sich der Zustand wirklich ändert.
+    unter -50 W, 1 Min. bestätigt). Normens Vorgabe vom 05.10.: lieber 30 bis 50
+    W Netzbezug als 250 W Einspeisung verschenken (keine Vergütung, Strompreis
+    0,30 EUR/kWh). Der zweite Ausschaltgrund ist der Akku-Schutz: Verlässt das
+    Gerät den Bypass (Gielz-Entladestart mit outputLimit über der PV, Quick
+    Discharge der Bypass-Autolösung, SOC 2 % unter dem Limit: 93 % bei Limit 95,
+    seit 15.10. 98 % bei Limit 100), regelt Gielz das Netz auf etwa -5 W. Die
+    50-W-Schwelle greift dann nicht mehr, ohne den zweiten Grund würde der Akku
+    das Panel speisen. sensor.zendure_power ist die Ausgangsleistung des Geräts
+    ins Haus (negativ = Abgabe aus PV und/oder Akku), nicht die Akkuleistung; im
+    Bypass am SOC-Limit steht er auf 0 W. Bis 05.10. galt: an unter -300 W (2
+    Min.), aus über -50 W (1 Min.); der Akku-Schutz ergab sich damals daraus,
+    dass -5 W über -50 W liegt. Ausschalten bewusst ohne Batterie-voll-Bedingung
+    (Normens Vorgabe vom 26.09.). Schaltet nur, wenn
+    input_select.balkonheizung_modus auf "Automatisch" steht; bei "Aus" und "An"
+    fasst diese Automatisierung den Schalter nicht an (seit 09.10. direkt,
+    vorher über input_boolean.balkonheizung_automatik_aktiv). Sonnenuntergang
+    als Rückfallschutz im OFF-Zweig (nachts immer aus). condition:trigger-Gates
+    verhindern Schalten über nicht entprellte Trigger; resync darf nur im
+    OFF-Zweig schalten (seit 28.09.). Seit 01.10. schalten und melden beide
+    Zweige nur, wenn sich der Zustand wirklich ändert.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.home_energy_meter_power
