@@ -994,6 +994,14 @@ setzen (G4 entspricht dann diesem Löschen).
   Drosselung an `soc_max >= 93`; ab 15.10. zählen dort auch Stunden mit
   93–99 % bei noch ladendem Akku.
 - Rückweg: denselben Helfer auf 95 setzen.
+- **Erster Volltag 19.10. (A3/A4 erfüllt):** SOC 98 % um 11:19, danach
+  langsame Endphase bis 100 % um 11:58 (typisch LFP). „Charging Limit
+  Reached“ 11:58:40–13:52:57; Austritt bei 98 % (Limit −2, gleiche
+  Hysterese wie bei 95/93). `sensor.zendure_last_calibration` neu
+  gestempelt: 19.10. 12:00:31 (vorher 25.09.) – These bestätigt, 100 %
+  bleibt. Danach Standby bei 98 %: Wiederaufladen startet erst bei mehr
+  als 300 W Einspeisung (Gielz `start_charging_at` −300), bei ca. 100 W
+  Überschuss also nicht; die fehlenden 2 % (ca. 50 Wh) sind belanglos.
 
 ---
 
