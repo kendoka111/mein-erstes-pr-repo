@@ -1079,6 +1079,14 @@ obwohl unerreichbar).
   „Starting“ ≥ PV + 75 W, kein Hänger > 1 Min.; erst dann zählt der Tag
   für Schritt 7.
 - Rückweg: denselben String bzw. dieselbe Bedingung zurücksetzen.
+- Nachtrag 20.10.: myStrom seit 19.10. 14:46 wieder erreichbar (Normen
+  zurück). Volltag 20.10.: „Charging Limit Reached“ 11:41–15:00, Heizung
+  11:43–13:33 (Überschuss). 13:31:18 Bezug ca. 140 W bei laufender
+  Heizung → „Starting“ 109 W ohne PV-Zuschlag (richtig, Heizung an);
+  Heizung aus 13:33:20 (netzbezug_aus nach 2 Min.), sofort „Starting“
+  671 W (= 109 + PV 563), Entladung ab 13:33:58. Kein Hänger über die
+  vorgesehenen 2 Min. hinaus. → Volltag ohne Lösungslauf Nr. 2. Akku
+  danach bis ca. 20:45 bei 18 %.
 
 ---
 
