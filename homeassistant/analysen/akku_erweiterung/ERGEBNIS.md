@@ -6,7 +6,8 @@ nicht berücksichtigt.
 
 ## Daten und Annahmen
 - Messdaten 27.08.–11.10.2026 (Stundenmittel aus HA): PV, Netz, SOC, Heizung.
-- Module: 2 × 520 Wp Südost, 1 × 520 Wp Südwest, 15–20° (Angabe Normen).
+- Module: 2 × 520 Wp Südost, 1 × 520 Wp Südwest, steil am Balkongeländer,
+  15–20° aus der Senkrechten (Angabe Normen, präzisiert am 30.10.2026).
   Gemessen liefert die Anlage vormittags am meisten, ab 12 Uhr deutlich
   weniger (Nachmittagsschatten oder effektiv mehr Ost). Deshalb keine reine
   Geometrie, sondern die gemessenen Tage als Vorlage.

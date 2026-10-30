@@ -17,8 +17,9 @@
 - Gemessen (`sensor.zendure_power_pv_total`, Stundenmittel) liefert die
   Anlage morgens weit mehr, als flache Module bei Oktobersonne schaffen
   (12.10. 08–09 UTC: 1011 W bei ~21° Sonnenhöhe). Das passt nur zu steilen,
-  nach Ost-Südost zeigenden Modulen. Vermutlich ist "15–20°" von der
-  Senkrechten gemessen (Balkongeländer). Offen, ob das stimmt.
+  nach Ost-Südost zeigenden Modulen. Normen hat am 30.10. bestätigt: Die
+  Module hängen steil am Balkongeländer, "15–20°" ist also die Abweichung
+  von der Senkrechten (Neigung ca. 70–75°).
 - Vergleich mit pvlib-Clear-Sky-Modell (Ineichen, PR 0,85), klare Tage 12.,
   19., 20. und 29.10., 06–15 UTC, abgeregelte Stunden ausgeschlossen
   (Nachrechnung Dr. Schmidt, 27 Stunden):
