@@ -1,0 +1,21 @@
+# Live-Stand automation.zendure_wachter_pv_export_status_nicht_lesbar, gelesen 07.10.2026, config_hash 8ea5c5f265753c5f
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: zendure_waechter_export_status_unbekannt
+  alias: 'Zendure Wächter: PV-Export-Status nicht lesbar'
+  description: Fehlerklasse 2 (Sensor-Teil) aus dem Audit. sensor.zendure_pv_export_mode stand vor dem 06.09. wochenlang durchgehend auf 'unknown', ohne dass es auffiel - die Netzeinspeisungs-Sperre war fuer HA unsichtbar. Meldet, wenn der Sensor laenger als 2 Stunden in unknown/unavailable haengt.
+  triggers:
+  - entity_id: sensor.zendure_pv_export_mode
+    for: 02:00:00
+    to:
+    - unknown
+    - unavailable
+    trigger: state
+  actions:
+  - action: notify.mobile_app_sm_a725f
+    data:
+      message: sensor.zendure_pv_export_mode liefert seit über 2 Stunden keinen lesbaren Wert (unknown/unavailable). Die Netzeinspeisungs-Sperre ist für Home Assistant gerade unsichtbar - in der Zendure-App nachsehen.
+      title: 'Zendure: Export-Status unklar'
+  max_exceeded: silent
+  mode: single
+  trace:
+    stored_traces: 256

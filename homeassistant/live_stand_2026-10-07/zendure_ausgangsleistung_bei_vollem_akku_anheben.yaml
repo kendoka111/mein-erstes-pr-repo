@@ -1,0 +1,45 @@
+# Live-Stand automation.zendure_ausgangsleistung_bei_vollem_akku_anheben, gelesen 07.10.2026, config_hash d0e36f1e21834513
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: zendure_ausgangsleistung_bei_vollem_akku
+  alias: 'Zendure: Ausgangsleistung bei vollem Akku anheben'
+  description: |-
+    Hebt input_number.zendure_setting_max_discharge_power auf 800 W an, solange der Akku voll ist (sensor.zendure_soc_limit_status == "Charging Limit Reached") und daher ohnehin nicht mehr laden kann - der Spielraum wird dann fuer Entladung genutzt statt ungenutzt zu bleiben. Setzt zurueck auf 650 W, sobald wieder Ladebedarf besteht.
+
+    26.09.: Nach Dr.-Schmidt-Pruefung ergaenzt um Start- und Zeit-Resync (analog automation.zendure_ladevorrang_hysterese_40_18), damit ein HA-Neustart waehrend "Charging Limit Reached" den Deckel nicht auf falschem Wert haengen laesst, bis die naechste echte Flanke kommt. Zustandsbasiert statt flankenbasiert entschieden (choose-Block prueft den Ist-Zustand, nicht die ausloesende Flanke).
+
+    800 W ist ein vorsichtiger Zwischenwert, kein aus Sensordaten belegtes Hardware-Maximum - sensor.zendure_inverter_max_discharge_power ist nur ein Echo dessen, was wir selbst setzen, kein unabhaengiger Hardware-Richtwert.
+
+    Verschleiss: Aendert sich nur ein paar Mal pro Tag beim Ueberschreiten der SOC-Grenze, nicht im 5-Sekunden-Regeltakt - laut Community-Doku zum Zendure-RAM/Flash-Schreibverhalten (sensor.zendure_storage_mode) damit unkritisch. Keine schaedliche Wechselwirkung mit der Hysterese- oder der Bypass-Waechter-Automatisierung gefunden.
+  triggers:
+  - entity_id: sensor.zendure_soc_limit_status
+    for: 00:02:00
+    id: resync
+    trigger: state
+  - event: start
+    id: resync
+    trigger: homeassistant
+  - id: resync
+    minutes: /10
+    trigger: time_pattern
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: sensor.zendure_soc_limit_status
+        state: Charging Limit Reached
+      sequence:
+      - action: input_number.set_value
+        data:
+          value: 800
+        target:
+          entity_id: input_number.zendure_setting_max_discharge_power
+    default:
+    - action: input_number.set_value
+      data:
+        value: 650
+      target:
+        entity_id: input_number.zendure_setting_max_discharge_power
+  max_exceeded: silent
+  mode: single
+  trace:
+    stored_traces: 256
