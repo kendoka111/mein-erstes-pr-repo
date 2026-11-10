@@ -1090,6 +1090,63 @@ obwohl unerreichbar).
 
 ---
 
+## Core-Update 2026.11.0 und REST-Aussetzer (10.11.2026)
+
+Update am 09.11. (Neustart ca. 13:55 Uhr). Abnahme am 10.11., nur gelesen:
+- Gielz an, Hash `bd38f04c4ae8274c` unverändert, keine Validierungsfehler.
+  Bypass-Autolösung `00465b1fe5f4fa69` unverändert, Merker aus. Alle 31
+  Automationen an, keine Reparaturen, Konfigurationsprüfung fehlerfrei.
+- Einstellwerte erhalten (Min-SOC 18, Max-SOC 100, Laden 2400 W, Entladen
+  650 W, Ladestart −300 W, Entladestart 100 W).
+- Ladevorrang schaltete am 09.11. ca. 14:05 Uhr bei 18 % auf „Smart Charge
+  Only“, nachts keine Entladung. Wie vorgesehen.
+- HACS → Marketplace: Power Flow Card Plus übernommen. Add-on „Get HACS“
+  ist überflüssig.
+
+REST-Aussetzer `/properties/report` (Messung 08.11. 19:28 bis 10.11. 19:28,
+`sensor.zendure_total_state_of_charge`): 40 Aussetzer, zusammen ~8,5 Min.
+(0,3 %), einschließlich Neustart. Eine Gegenrechnung mit 64 Aussetzern und
+~19 Min. ließ sich nicht nachvollziehen.
+- Abruf laut Paket v20260824 (Zeile 1487, siehe `gielz-upstream-issues.md`):
+  `scan_interval: 1`, kein `timeout` (HA-Standard 10 s). Live-Datei nicht
+  erneut gelesen (File-Tools bewusst aus); `sensor.zendure_configuration_version`
+  steht weiter auf v20260824.
+- Verdacht zu schnelles Polling (Community: ≥ 3 s) ist unbestätigt. Eine
+  Änderung wäre ein lokaler Paket-Patch mit Neustart und Prüfung durch
+  Dr. Schmidt. Noch nicht entschieden.
+- Verbindung: `device_tracker.zendure` meldet WLAN direkt an der FRITZ!Box
+  7590 (SSID „FRITZ!Box 7590 RJ“, kein Repeater), IP 192.168.178.101,
+  `sensor.zendure_wifi_signal_strength` „Good“. Das Band zeigt HA nicht
+  (FRITZ!Box-Oberfläche: Heimnetz → Mesh/WLAN). LAN-Kabel wäre die robusteste
+  Lösung, das Gerät hat einen LAN-Port.
+- `unknown/properties/report` beim Start: `input_text.zendure_setting_ip_address`
+  noch nicht wiederhergestellt, heilt sich selbst (siehe Plan Schritt 5).
+- `unknown/api/v1/data` (HomeWizard): im aktuellen system_log und
+  error_log **kein** Eintrag. Der Block ist seit 09.10. gelöscht und bleibt
+  aus. Die Annahme „Lograuschen vom HomeWizard-Fallback“ trifft nicht zu.
+- Die Gielz-Templatefehler (91×, Eingabe `unavailable`) entstehen nur während
+  der Aussetzer. Gielz tut dann nichts. Bekannt, harmlos.
+- Flash-Schonung: `sensor.zendure_storage_mode` = „RAM Memory“ (smartMode
+  aktiv). Gegencheck damit erledigt.
+
+Entscheidungen Normen:
+- Kein Wechsel auf MQTT. Der Report kommt dort laut Zendure-Entwickler nur
+  etwa alle 90 s, und Mosquitto auf dem HA-Host ist das Setup mit dem
+  Reconnect-Bug.
+- Firmware V2.0.5 nicht installieren, bis Gielz nachzieht. Laut Gielz-Issue
+  #344 fehlt danach pvStatus in der API und `sensor.zendure_power` kippt auf
+  unknown. Gemeldet für 2400 AC+/NL-Paket, für Pro/Global nicht geprüft.
+
+Offen:
+- Beim ersten Frost (Akku unter ~5 °C) prüfen, ob die Akkuheizung anspringt.
+  HA hat keinen Heizungssensor. Indiz wären nächtliche Leistungsaufnahme und
+  Temperaturverlauf. Ob die REST-Steuerung als „automatisch“ zählt, ist
+  unbelegt.
+- Terrarium: `terra_wasserfall_an` am 09.11. 20:00 „Tuya cloud rejected the
+  command“, einmalig. aquagrow_tc361 hatte 3 Abruffehler.
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
@@ -1219,3 +1276,7 @@ Scharfschalten kalibriert werden müssen.
 - **Fassung 11 (10.10.2026):** Core-Update 2026.10.0 deaktivierte Gielz
   („for“ mit Zustandsliste im Notaus-Zweig). Patch G6 eingespielt (Hash
   `67885ea906ee1618`), Gielz läuft wieder ab 16:18 Uhr.
+- **Fassung 12 (10.11.2026):** Abnahme Core-Update 2026.11.0 bestanden.
+  REST-Aussetzer gemessen (40 in 48 h, ~8,5 Min.), Verbindung WLAN direkt
+  an der FRITZ!Box, smartMode bestätigt. HomeWizard-Abruf bleibt aus.
+  Entscheidungen: kein MQTT, Firmware V2.0.5 vorerst nicht.
