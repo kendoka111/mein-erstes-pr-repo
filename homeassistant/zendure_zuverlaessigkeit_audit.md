@@ -1111,6 +1111,14 @@ REST-Aussetzer `/properties/report` (Messung 08.11. 19:28 bis 10.11. 19:28,
   `scan_interval: 1`, kein `timeout` (HA-Standard 10 s). Live-Datei nicht
   erneut gelesen (File-Tools bewusst aus); `sensor.zendure_configuration_version`
   steht weiter auf v20260824.
+- Aussetzer nach Betriebszustand (`sensor.zendure_charging_mode`): 28 im
+  Standby (~38,5 h), 12 bei Entladung (~9,5 h), keiner beim Laden. 32 der 40
+  dauern nur 1–2 s (ein verpasster Abruf). Fünf längere Aussetzer liegen im
+  Standby (08.11. 20:02–20:11 mit 4,6 Min. am Stück, 09.11. 18:36 26 s,
+  10.11. 06:32–06:33 2×13 s), einer bei Entladung (09.11. 11:38, 43 s).
+  Häufungen: 09.11. 11:38–12:44 (9 bei Entladung), 09.11. 17:07–17:31 im
+  6-Minuten-Takt jeweils bei Sekunde :42 (Standby). 10.11. bei über 6 h
+  Entladung nur 1 Aussetzer. Kein Zusammenhang mit der Entladung erkennbar.
 - Verdacht zu schnelles Polling (Community: ≥ 3 s) ist unbestätigt. Eine
   Änderung wäre ein lokaler Paket-Patch mit Neustart und Prüfung durch
   Dr. Schmidt. Noch nicht entschieden.
