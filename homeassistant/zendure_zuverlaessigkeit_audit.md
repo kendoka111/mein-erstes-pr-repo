@@ -1127,6 +1127,9 @@ REST-Aussetzer `/properties/report` (Messung 08.11. 19:28 bis 10.11. 19:28,
   `sensor.zendure_wifi_signal_strength` „Good“. Das Band zeigt HA nicht
   (FRITZ!Box-Oberfläche: Heimnetz → Mesh/WLAN). LAN-Kabel wäre die robusteste
   Lösung, das Gerät hat einen LAN-Port.
+  FRITZ!Box-Ansicht (Normen, 10.11. 20:26): 2,4 GHz, −67 dBm, 40 MHz
+  Kanalbandbreite, 1×1 Stream, aktuell ↓60/↑108 Mbit/s (max. 150). Das
+  Signal ist grenzwertig, 40 MHz auf 2,4 GHz ist störanfällig.
 - `unknown/properties/report` beim Start: `input_text.zendure_setting_ip_address`
   noch nicht wiederhergestellt, heilt sich selbst (siehe Plan Schritt 5).
 - `unknown/api/v1/data` (HomeWizard): im aktuellen system_log und
