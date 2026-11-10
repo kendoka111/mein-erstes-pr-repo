@@ -1,8 +1,10 @@
-# Vier Wächter-Automationen aus homeassistant/zendure_zuverlaessigkeit_audit.md
-# (Fassung nach Dr.-Schmidt-Freigabe vom 06.09.2026).
+# Drei Wächter-Automationen aus homeassistant/zendure_zuverlaessigkeit_audit.md
+# (Fassung nach Dr.-Schmidt-Freigabe vom 06.09.2026). Der vierte Wächter
+# (4xx-Befehlsablehnung) wurde am 10.11.2026 gelöscht, weil er nie auslösen
+# konnte (system_log feuert ohne fire_event: true keine Events).
 #
 # Zweck: kein Kontrollzweig, keine Steuerung des Akkus/der PV — nur Meldung
-# per Push, wenn eine der vier am 06.09. beobachteten Fehlerklassen wieder
+# per Push, wenn eine der am 06.09. beobachteten Fehlerklassen wieder
 # auftritt. Ziel ist, dass Normen es aus einer Benachrichtigung erfährt,
 # statt zufällig beim Blick aufs Handy.
 #
@@ -164,38 +166,6 @@
           Diese Zendure-Sensoren liefern seit über 10 Minuten keine frischen
           Werte mehr: {{ ns.liste | join(', ') }}. Vermutlich REST-Reload-
           Nachwirkung (Unique-ID-Kollision) - HA-Core-Neustart hilft meist.
-  mode: single
-  max_exceeded: silent
-  trace:
-    stored_traces: 256
-
-- id: zendure_waechter_befehl_abgelehnt
-  alias: "Zendure Wächter: Gerät lehnt Befehl ab (4xx)"
-  description: >
-    Fehlerklasse 4 aus dem Audit. Am 06.09. 13:58:42 Uhr lehnte das Geraet
-    einen rest_command mit leerem Payload (leere Seriennummer, leerer
-    outputLimit) mit HTTP 400 ab. Reagiert auf das system_log_event der
-    rest_command-Komponente, gefiltert auf die Zendure-Schreib-Ressource,
-    damit das unabhaengige HomeWizard-DNS-Rauschen (Issue 1 in
-    gielz-upstream-issues.md) nicht mit hineinzieht.
-  triggers:
-    - trigger: event
-      event_type: system_log_event
-  conditions:
-    - condition: template
-      value_template: >
-        {% set msg = trigger.event.data.message | string %}
-        {{ trigger.event.data.name == 'homeassistant.components.rest_command'
-           and 'properties/write' in msg
-           and '400' in msg }}
-  actions:
-    - action: notify.mobile_app_sm_a725f
-      data:
-        title: "Zendure: Befehl abgelehnt"
-        message: >
-          Das Zendure-Gerät hat einen Steuerbefehl mit einem 4xx-Fehler
-          abgelehnt (properties/write). Möglicherweise wurde er mit einem
-          unvollständigen Payload gesendet. Log prüfen.
   mode: single
   max_exceeded: silent
   trace:

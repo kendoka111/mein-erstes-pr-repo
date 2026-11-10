@@ -1147,6 +1147,20 @@ REST-Aussetzer `/properties/report` (Messung 08.11. 19:28 bis 10.11. 19:28,
 - Flash-Schonung: `sensor.zendure_storage_mode` = „RAM Memory“ (smartMode
   aktiv). Gegencheck damit erledigt.
 
+Wächter 4 gelöscht (10.11.2026, Auftrag Normen, Freigabe Dr. Schmidt):
+- `automation.zendure_wachter_gerat_lehnt_befehl_ab_4xx` (id
+  `zendure_waechter_befehl_abgelehnt`, Hash `ac4fdb46c9bce62c`) entfernt.
+- Grund: Der Trigger `system_log_event` wird nie gefeuert, weil `system_log`
+  ohne `fire_event: true` keine Events sendet. Die Automation hatte 0 Traces
+  bei 22 Warn- und Fehlereinträgen seit dem Neustart am 09.11.
+- **Fehlerklasse 4 (Befehl mit leerem Payload, HTTP 400) wird ab jetzt nicht
+  mehr überwacht. Es gibt keinen Ersatz.**
+- Rückweg: Block aus der Git-Historie von `zendure_waechter.yaml` oder
+  `live_stand_2026-10-07/zendure_wachter_gerat_lehnt_befehl_ab_4xx.yaml` per
+  `ha_config_set_automation` neu anlegen (wirkt nur zusammen mit
+  `system_log: fire_event: true`).
+- Gleichzeitig entfernt: Add-on „Get HACS“ (überflüssig seit Marketplace).
+
 Entscheidungen Normen:
 - Kein Wechsel auf MQTT. Der Report kommt dort laut Zendure-Entwickler nur
   etwa alle 90 s, und Mosquitto auf dem HA-Host ist das Setup mit dem
@@ -1224,7 +1238,8 @@ Keine YAML, keine fertige Automation, keine Schwellenwerte, die schon
 scharf geschaltet sind. Das ist Aufgabe des nächsten Schritts, nachdem
 Dr. Schmidt diese Fehlerklassen und die vorgeschlagenen Erkennungslogiken
 gegengeprüft hat — insbesondere ob die vier Wächter (Bypass-Hänger,
-PV-Deckelung, Sensor-Freshness, 4xx-Befehlsablehnung) die Fälle von heute
+PV-Deckelung, Sensor-Freshness, 4xx-Befehlsablehnung; der 4xx-Wächter ist
+seit 10.11.2026 gelöscht, siehe Abschnitt dazu) die Fälle von heute
 wirklich abgedeckt hätten und ob es Fehlalarm-Risiken gibt, die vor dem
 Scharfschalten kalibriert werden müssen.
 
@@ -1298,3 +1313,5 @@ Scharfschalten kalibriert werden müssen.
   REST-Aussetzer gemessen (40 in 48 h, ~8,5 Min.), Verbindung WLAN direkt
   an der FRITZ!Box, smartMode bestätigt. HomeWizard-Abruf bleibt aus.
   Entscheidungen: kein MQTT, Firmware V2.0.5 vorerst nicht.
+  Wächter 4 (4xx) gelöscht, Fehlerklasse 4 ohne Überwachung. Add-on
+  „Get HACS“ entfernt.
