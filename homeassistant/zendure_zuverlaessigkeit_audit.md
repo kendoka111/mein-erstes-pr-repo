@@ -1130,6 +1130,13 @@ REST-Aussetzer `/properties/report` (Messung 08.11. 19:28 bis 10.11. 19:28,
   FRITZ!Box-Ansicht (Normen, 10.11. 20:26): 2,4 GHz, −67 dBm, 40 MHz
   Kanalbandbreite, 1×1 Stream, aktuell ↓60/↑108 Mbit/s (max. 150). Das
   Signal ist grenzwertig, 40 MHz auf 2,4 GHz ist störanfällig.
+  Letzte Kanalprüfung der FRITZ!Box (Autokanal): 09.11. 11:37:52. Der
+  Aussetzer von 43 s begann 26 s später (11:38:18), danach die Häufung bis
+  12:44. Umgebung ruhig (1–3 Netze je Kanal), Box auf Kanal 11.
+  **Änderung 10.11. 21:10 (Normen):** 2,4 GHz fest auf Kanal 11 statt
+  Autokanal, sonst unverändert (Koexistenz an, 100 %, Wi-Fi 6). Vergleich
+  der Aussetzer am 13.11. Zweiter Schritt nur bei Bedarf: 2,4-GHz-Standard
+  Wi-Fi 4/5.
 - `unknown/properties/report` beim Start: `input_text.zendure_setting_ip_address`
   noch nicht wiederhergestellt, heilt sich selbst (siehe Plan Schritt 5).
 - `unknown/api/v1/data` (HomeWizard): im aktuellen system_log und
