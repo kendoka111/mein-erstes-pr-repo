@@ -67,3 +67,36 @@
   9:30) lassen sich mit der Fläche nicht beheben.
 - Die Vorhersage wird nur angezeigt (Dashboards, Energie-Dashboard). Keine
   Automation nutzt sie.
+
+## Auswertung Option C (13.11.2026)
+Zeitraum 30.10. 14:00 bis 13.11. 11:00 MEZ, Stundenmittel
+`sensor.power_production_now` gegen `sensor.zendure_power_pv_total`.
+Ausgeschlossen: Stunden mit SOC ≥ 95 % oder PV-Maximum 790–810 W
+(Abregelung), 10 Stunden. Skript: Scratchpad `pvcmp.py` (nicht im Repo).
+
+| Stunde (MEZ) | Prognose Wh | Ist Wh | Ist/Prognose |
+|---|---|---|---|
+| 08 | 555 | 1142 | 2,06 |
+| 09 | 1962 | 3077 | 1,57 |
+| 10 | 2273 | 2076 | 0,91 |
+| 11 | 2219 | 1202 | 0,54 |
+| 12 | 2057 | 1215 | 0,59 |
+| 13 | 1721 | 1310 | 0,76 |
+| 14 | 1383 | 1378 | 1,00 |
+| 15 | 1038 | 798 | 0,77 |
+| 16 | 573 | 23 | 0,04 |
+| 17 | 140 | 0 | 0,00 |
+| gesamt | 13921 | 12316 | 0,88 |
+
+- Über zwei Wochen liegt die Summe nah dran (0,88). Einzelne Tage schwanken
+  durch Wetterfehler stark (0,01 bis 4,2), z. B. 11.11. Dauerregen, 7 Wh Ist.
+- Systematisch: morgens (8–9 Uhr) zu niedrig, mittags (11–13 Uhr) zu hoch,
+  ab 16 Uhr liefert die Anlage nichts mehr (Schatten/Horizont), die
+  Prognose noch ~40 W im Schnitt.
+- **Entscheidung: keine Dämpfung, Fläche unverändert.** `damping_evening`
+  würde nur die letzte Stunde (~5 % der Prognose) treffen, die Formel ist
+  unbelegt, und gegen das Morgen-zu-niedrig/Mittag-zu-hoch-Muster hilft
+  Dämpfung nicht. Eine noch östlichere Ersatzfläche würde zur
+  Novembersonne passen, im Sommer aber falsch liegen. Nächste Prüfung im
+  Frühjahr mit höherem Sonnenstand. Keine Änderung, daher keine Abnahme
+  durch Dr. Schmidt nötig.

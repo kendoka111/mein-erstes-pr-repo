@@ -1137,6 +1137,17 @@ REST-Aussetzer `/properties/report` (Messung 08.11. 19:28 bis 10.11. 19:28,
   Autokanal, sonst unverändert (Koexistenz an, 100 %, Wi-Fi 6). Vergleich
   der Aussetzer am 13.11. Zweiter Schritt nur bei Bedarf: 2,4-GHz-Standard
   Wi-Fi 4/5.
+  **Ergebnis 13.11.** (10.11. 21:09 bis 13.11. 11:03, 61,9 h): 29 Aussetzer,
+  zusammen ~2,1 Min., alle im Standby (Entladung nur ~1 h im Zeitraum).
+  Hochgerechnet auf 48 h: ~22 Aussetzer und ~1,6 Min. statt 40 und ~8,5 Min.
+  Längster 41 s (11.11. 01:12), kein Ausfall über eine Minute. 26 der 29
+  dauern ≤ 1,5 s. Häufungen nachts (11.11. 01:11–04:14 13 Stück, 13.11.
+  03:20–06:33 7 Stück); vom 11.11. 23:52 bis 13.11. 01:48 (~26 h) kein
+  einziger. Deutlich besser, aber nicht weg. Zeitraum kurz, weiter
+  beobachten. Polling-Änderung (3 s) bleibt zurückgestellt.
+  Akkutemperatur 13.11. früh erstmals 5 °C (05–09 Uhr), keine nächtliche
+  Leistungsaufnahme, SOC stabil 30→29 %: kein Hinweis auf Heizbetrieb, bei
+  5 °C auch nicht zu erwarten.
 - `unknown/properties/report` beim Start: `input_text.zendure_setting_ip_address`
   noch nicht wiederhergestellt, heilt sich selbst (siehe Plan Schritt 5).
 - `unknown/api/v1/data` (HomeWizard): im aktuellen system_log und
