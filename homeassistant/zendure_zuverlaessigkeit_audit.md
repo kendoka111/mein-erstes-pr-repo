@@ -1210,7 +1210,23 @@ Offen:
   10.11. (V2.0.5 nicht installieren) ist damit möglicherweise überholt.
   **Nachtrag 14.11.:** Normen bestätigt Firmware **V2.0.5** auf dem Gerät
   (Zendure-App). Damit betrifft #344 auch den SolarFlow 2400 Pro mit dem
-  Global-Paket. Ob das Update automatisch kam, ist noch offen.
+  Global-Paket. Normen hat V2.0.5 selbst eingespielt (Entscheidung vom 10.11.
+  damit überholt).
+- Upstream gelesen (öffentliches Repo Gielz1986/zendure-ha-zensdk): Zwischen
+  v20260824, v20261007 und v20261113 keine weiteren Tags. Paket-Diff
+  v20260824→v20261113: discharge_buffer min 0→−100, Versionsstring,
+  Kapazitäts-Mapping (Mix, 240), und der Fix in genau 4 REST-Templates
+  (`pvStatus` per `.get()` mit Ersatzwert 0). Keine Änderung an
+  rest_command, unique_ids, Ressourcen, scan_interval.
+- **PK-PV1 (Minimal-Patch, Freigabe Dr. Schmidt mit Auflagen):** In
+  `/config/packages/zendure_gielz1986_global.yaml` per Ersetzen (nur diese
+  Datei, Regex aus) `value_json['properties']['pvStatus'] | int(0)` →
+  `value_json.get('properties', {}).get('pvStatus', 0) | int(0)`, Soll genau
+  4 Treffer. `sensor.zendure_configuration_version` bleibt bewusst v20260824
+  (Paket = v20260824 + PK-HW1 + PK-PV1), weicht damit vom GitHub-Sensor
+  (v20261113) ab. Volles Paket-Update später regulär, dann entfällt PK-PV1.
+- Backup vor dem Patch: `c9db647b` „Automatic backup 2026.11.1“, 14.11.
+  14:36–14:42, Nabu Casa Cloud, inkl. Datenbank. (Core inzwischen 2026.11.1.)
 - Plan (Dr. Schmidt, ZURÜCK in erster Form, Auflagen eingearbeitet): Backup,
   neue Paketdatei „English (Global)“ v20261113 bereitlegen, alte Datei
   außerhalb von `/config/packages/` sichern, Diff alt/neu (Studio Code Server)
