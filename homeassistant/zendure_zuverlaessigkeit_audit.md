@@ -1227,6 +1227,27 @@ Offen:
   (v20261113) ab. Volles Paket-Update später regulär, dann entfällt PK-PV1.
 - Backup vor dem Patch: `c9db647b` „Automatic backup 2026.11.1“, 14.11.
   14:36–14:42, Nabu Casa Cloud, inkl. Datenbank. (Core inzwischen 2026.11.1.)
+- **Ausführung 14.11.:** Normen hat PK-PV1 in Studio Code Server angewendet
+  (Ersetzen, 4 Treffer; Kontrolle `['pvStatus']` 0, `.get('pvStatus', 0)` 4,
+  `api/v1/data` 0). Dabei versehentlich `blueprints/script/homeassistant/
+  confirmable_notification.yaml` Zeile 86 gekürzt (`sequenc`), von Normen auf
+  `sequence: !input dismiss_action` zurückgesetzt. config_check valid,
+  Neustart durch mich mit Normens Ja, HA wieder da ca. 16:36.
+- **Abnahme 14.11. ~16:38:**
+  - `sensor.zendure_power` −649, `power_export` 649, `power_import` 0
+    (Vorzeichen stimmig), `set_discharge_power` 650, `charging_mode`
+    Discharging ab 16:36:35, also Entladung ~10 s nach Start.
+  - `pv_total` 0 = `pv_to_battery` 0 + `pv_to_home` 0 (Sonnenuntergang,
+    `pv_passthrough` „PV Offline“). PV-Werte > 0 erst morgen früh prüfbar.
+  - Gielz on, Hash `bd38f04c4ae8274c`, validation null. Drei Wächter on.
+  - Einstellwerte Wert für Wert gleich der Liste vom 14.11. ~14:30
+    (18/100/650/2400/−300/100/Puffer 5/Ladepuffer 50/Standby 15, beide
+    Schalter off, IP 192.168.178.101). Keine Entities mit Endung `_2`.
+  - system_log: nur bekannte Startmeldungen (`unknown/properties/report`,
+    55× „Platform rest not ready“), kein `api/v1/data`, keine
+    `properties/write`-4xx, keine Unique-ID-Meldungen, keine Templatefehler.
+  - Offen: PV-Werte bei Tageslicht und 24-h-Nachbeobachtung FW 2.0.5
+    (Bypass-Hänger, REST-Aussetzer, 4xx) am 15.11.
 - Plan (Dr. Schmidt, ZURÜCK in erster Form, Auflagen eingearbeitet): Backup,
   neue Paketdatei „English (Global)“ v20261113 bereitlegen, alte Datei
   außerhalb von `/config/packages/` sichern, Diff alt/neu (Studio Code Server)
