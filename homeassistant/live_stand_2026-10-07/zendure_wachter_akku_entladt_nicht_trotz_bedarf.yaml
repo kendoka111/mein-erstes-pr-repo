@@ -1,0 +1,38 @@
+# Live-Stand automation.zendure_wachter_akku_entladt_nicht_trotz_bedarf, gelesen 07.10.2026, config_hash bba7d0f4a36d191e
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: zendure_waechter_bypass_haenger
+  alias: 'Zendure Wächter: Akku entlädt nicht trotz Bedarf'
+  description: |-
+    Fehlerklasse 1 aus dem Audit. Meldet, wenn der Akku spürbar über der Mindest-SOC liegt, das Haus mehr als die Entlade-Startschwelle aus dem Netz zieht, und der Akku laut sensor.zendure_charging_mode trotzdem NICHT "Discharging" ist - und das durchgehend seit mindestens 10 Minuten. Prueft operation_mode bewusst NICHT allgemein (Entscheidung Normen, 06.09.): meldet weiterhin, wenn der Modus manuell auf Standby/Manual steht. SOC-Schwelle 30% ist hart codiert statt an minimum_allowed_state_of_charge gekoppelt, weil ein fester, grosszuegiger Sicherheitsabstand zur echten Mindest-SOC (18%) hier robuster ist als eine Rechnung mit Puffer.
+
+    16.09.: Fehlalarm entdeckt (Normen, 35-36% SOC). Ursache: automation.zendure_ladevorrang_hysterese_40_18 sperrt Entladung bewusst durch Umschalten auf operation_mode "Smart Charge Only", sobald der SOC auf 18% faellt, und gibt erst ab 40% wieder frei (Totband 19-39%). In diesem Modus ist "nicht entladen" per Definition korrekt - unabhaengig vom SOC-Wert, ob 20% oder 39%. Betraf rueckwirkend auch den vermeintlich raetselhaften 09.09.-Vorfall (siehe Audit/Zendure-Korrespondenz): kein Geraete- oder REST-Fehler, sondern dieselbe Hysterese.
+
+    Fix (Entscheidung Normen, 16.09.): dritte Bedingung ergaenzt, die ausschliesslich den einen Modus "Smart Charge Only" ausschliesst - unabhaengig vom SOC, weil das Nicht-Entladen dort strukturell korrekt ist. Standby/Manual bleiben bewusst weiter scharf, da dort (anders als bei der selbstverwaltenden, selbst-aufloesenden Hysterese) ein haengengebliebener oder vergessener Zustand ein echtes Problem sein kann. Ein echter Bypass-Haenger wie am 06.09. (Geraet ignoriert einen tatsaechlich gesendeten Entlade-Befehl) bleibt in allen entladefaehigen Modi (Smart Matching u.a.) unabhaengig vom SOC weiterhin erkennbar, da diese Bedingung nur den einen Sondermodus ausnimmt.
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.home_energy_meter_power
+    above: input_number.zendure_setting_start_discharging_at
+    for: 00:10:00
+  conditions:
+  - condition: numeric_state
+    entity_id: sensor.zendure_total_state_of_charge
+    above: 30
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: sensor.zendure_charging_mode
+      state: Discharging
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: input_select.zendure_operation_mode
+      state: Smart Charge Only
+  actions:
+  - action: notify.mobile_app_sm_a725f
+    data:
+      title: 'Zendure: Akku entlädt nicht'
+      message: Akku bei {{ states('sensor.zendure_total_state_of_charge') }} %, Haus zieht {{ states('sensor.home_energy_meter_power') }} W aus dem Netz, aber Lademodus ist "{{ states('sensor.zendure_charging_mode') }}" statt "Discharging". Seit mind. 10 Minuten so.
+  mode: single
+  max_exceeded: silent
+  trace:
+    stored_traces: 256

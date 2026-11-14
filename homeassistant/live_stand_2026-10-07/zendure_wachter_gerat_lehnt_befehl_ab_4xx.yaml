@@ -1,0 +1,22 @@
+# Live-Stand automation.zendure_wachter_gerat_lehnt_befehl_ab_4xx, gelesen 07.10.2026, config_hash ac4fdb46c9bce62c
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: zendure_waechter_befehl_abgelehnt
+  alias: 'Zendure Wächter: Gerät lehnt Befehl ab (4xx)'
+  description: Fehlerklasse 4 aus dem Audit. Am 06.09. 13:58:42 Uhr lehnte das Geraet einen rest_command mit leerem Payload (leere Seriennummer, leerer outputLimit) mit HTTP 400 ab. Reagiert auf das system_log_event der rest_command-Komponente, gefiltert auf die Zendure-Schreib-Ressource, damit das unabhaengige HomeWizard-DNS-Rauschen (Issue 1 in gielz-upstream-issues.md) nicht mit hineinzieht.
+  triggers:
+  - event_type: system_log_event
+    trigger: event
+  conditions:
+  - condition: template
+    value_template: |-
+      {% set msg = trigger.event.data.message | string %}
+      {{ trigger.event.data.name == 'homeassistant.components.rest_command' and 'properties/write' in msg and '400' in msg }}
+  actions:
+  - action: notify.mobile_app_sm_a725f
+    data:
+      message: Das Zendure-Gerät hat einen Steuerbefehl mit einem 4xx-Fehler abgelehnt (properties/write). Möglicherweise wurde er mit einem unvollständigen Payload gesendet. Log prüfen.
+      title: 'Zendure: Befehl abgelehnt'
+  max_exceeded: silent
+  mode: single
+  trace:
+    stored_traces: 256

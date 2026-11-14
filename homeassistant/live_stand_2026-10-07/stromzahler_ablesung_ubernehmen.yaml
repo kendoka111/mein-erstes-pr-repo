@@ -1,0 +1,30 @@
+# Live-Stand automation.stromzahler_ablesung_ubernehmen, gelesen 07.10.2026, config_hash 52a010850768dd6b
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: stromzaehler_ablesung_kalibrieren
+  alias: 'Stromzähler: Ablesung übernehmen'
+  description: Wird ein neuer Zählerstand in input_number.stromzahler_ablesung_bezug eingetragen, merkt sich diese Automatisierung den aktuellen Stand von sensor.netz_bezug_kwh (Netzbezug aus Shelly Pro 3EM + Waschmaschine + Trockner) als Basis und das Ablesedatum. sensor.stromzahler_bezug_1_8_0 zählt ab dann den Netzbezug seit der Ablesung auf den abgelesenen Stand drauf.
+  triggers:
+  - entity_id: input_number.stromzahler_ablesung_bezug
+    not_from:
+    - unavailable
+    - unknown
+    not_to:
+    - unavailable
+    - unknown
+    trigger: state
+  conditions:
+  - above: 0
+    condition: numeric_state
+    entity_id: sensor.netz_bezug_kwh
+  actions:
+  - action: input_number.set_value
+    data:
+      value: '{{ states(''sensor.netz_bezug_kwh'') | float }}'
+    target:
+      entity_id: input_number.stromzahler_basis_netzbezug
+  - action: input_datetime.set_datetime
+    data:
+      datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+    target:
+      entity_id: input_datetime.stromzahler_ablesedatum
+  mode: single

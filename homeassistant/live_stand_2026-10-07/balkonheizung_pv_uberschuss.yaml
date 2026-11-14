@@ -1,0 +1,115 @@
+# Live-Stand automation.balkonheizung_pv_uberschuss, gelesen 07.10.2026, config_hash 6ad90a6d8d78dd02
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: balkon_heizung_ueberschuss
+  alias: 'Balkonheizung: PV-Überschuss'
+  description: 'Schaltet die Balkonheizung (switch.mystrom_device, ca. 295 W) ein, wenn die Zendure-Batterie voll ist (sensor.zendure_soc_limit_status = "Charging Limit Reached"), das Zendure-Gerät nichts ins Haus abgibt (sensor.zendure_power über -50 W) und das Haus mehr als 260 W ins Netz einspeist (sensor.home_energy_meter_power unter -260 W, 5 Min. bestätigt). Nach dem Einschalten bezieht das Haus damit höchstens etwa 35 W aus dem Netz. Ausgeschaltet wird, wenn der Netzbezug über 50 W steigt (2 Min. bestätigt) oder wenn das Zendure-Gerät Strom ins Haus abgibt (sensor.zendure_power unter -50 W, 1 Min. bestätigt). Normens Vorgabe vom 05.10.: lieber 30 bis 50 W Netzbezug als 250 W Einspeisung verschenken (keine Vergütung, Strompreis 0,30 EUR/kWh). Der zweite Ausschaltgrund ist der Akku-Schutz: Verlässt das Gerät den Bypass (Gielz-Entladestart mit outputLimit über der PV, Quick Discharge der Bypass-Autolösung, SOC unter 93 %), regelt Gielz das Netz auf etwa -5 W. Die 50-W-Schwelle greift
+    dann nicht mehr, ohne den zweiten Grund würde der Akku das Panel speisen. sensor.zendure_power ist die Ausgangsleistung des Geräts ins Haus (negativ = Abgabe aus PV und/oder Akku), nicht die Akkuleistung; im Bypass am SOC-Limit steht er auf 0 W. Bis 05.10. galt: an unter -300 W (2 Min.), aus über -50 W (1 Min.); der Akku-Schutz ergab sich damals daraus, dass -5 W über -50 W liegt. Ausschalten bewusst ohne Batterie-voll-Bedingung (Normens Vorgabe vom 26.09.). input_boolean.balkonheizung_automatik_aktiv als manueller Vorrang-Schalter: bei Aus fasst diese Automatisierung den Schalter nicht an. Sonnenuntergang als Rückfallschutz im OFF-Zweig (nachts immer aus). condition:trigger-Gates verhindern Schalten über nicht entprellte Trigger; resync darf nur im OFF-Zweig schalten (seit 28.09.). Seit 01.10. schalten und melden beide Zweige nur, wenn sich der Zustand wirklich ändert.'
+  triggers:
+  - below: -260
+    entity_id: sensor.home_energy_meter_power
+    for:
+      minutes: 5
+    id: ueberschuss_an
+    trigger: numeric_state
+  - above: 50
+    entity_id: sensor.home_energy_meter_power
+    for:
+      minutes: 2
+    id: netzbezug_aus
+    trigger: numeric_state
+  - below: -50
+    entity_id: sensor.zendure_power
+    for:
+      minutes: 1
+    id: zendure_speist
+    trigger: numeric_state
+  - entity_id:
+    - sensor.zendure_soc_limit_status
+    for:
+      minutes: 2
+    id: soc_wechsel
+    trigger: state
+  - entity_id:
+    - input_boolean.balkonheizung_automatik_aktiv
+    id: automatik_toggle
+    trigger: state
+  - id: resync
+    minutes: /5
+    trigger: time_pattern
+  - event: start
+    id: resync
+    trigger: homeassistant
+  actions:
+  - choose:
+    - alias: Überschuss vorhanden -> einschalten
+      conditions:
+      - condition: state
+        entity_id: input_boolean.balkonheizung_automatik_aktiv
+        state: 'on'
+      - condition: state
+        entity_id: switch.mystrom_device
+        state: 'off'
+      - condition: state
+        entity_id: sensor.zendure_soc_limit_status
+        state: Charging Limit Reached
+      - below: -260
+        condition: numeric_state
+        entity_id: sensor.home_energy_meter_power
+      - above: -50
+        condition: numeric_state
+        entity_id: sensor.zendure_power
+      - after: sunrise
+        before: sunset
+        condition: sun
+      - condition: trigger
+        id:
+        - ueberschuss_an
+        - soc_wechsel
+      sequence:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.mystrom_device
+      - action: logbook.log
+        data:
+          entity_id: switch.mystrom_device
+          message: '☀️ PV-Überschuss: Balkonheizung eingeschaltet'
+          name: ' '
+    - alias: Kein Überschuss mehr oder Gerät speist ins Haus -> ausschalten
+      conditions:
+      - condition: state
+        entity_id: input_boolean.balkonheizung_automatik_aktiv
+        state: 'on'
+      - condition: state
+        entity_id: switch.mystrom_device
+        state: 'on'
+      - condition: or
+        conditions:
+        - above: 50
+          condition: numeric_state
+          entity_id: sensor.home_energy_meter_power
+        - below: -50
+          condition: numeric_state
+          entity_id: sensor.zendure_power
+        - after: sunset
+          before: sunrise
+          condition: sun
+      - condition: trigger
+        id:
+        - netzbezug_aus
+        - zendure_speist
+        - resync
+        - soc_wechsel
+      sequence:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.mystrom_device
+      - action: logbook.log
+        data:
+          entity_id: switch.mystrom_device
+          message: '🌙 Kein PV-Überschuss mehr: Balkonheizung ausgeschaltet'
+          name: ' '
+    default: []
+  max_exceeded: silent
+  mode: single
+  trace:
+    stored_traces: 256
