@@ -1190,6 +1190,49 @@ Offen:
 
 ---
 
+## Störung seit 13.11.2026 18:45: PV- und Ausgangswerte „unknown“
+
+- Seit 13.11. 18:45:53 stehen `sensor.zendure_power`, `sensor.zendure_power_pv_total`,
+  `sensor.zendure_power_pv_to_battery` und `sensor.zendure_power_pv_to_home`
+  dauerhaft auf `unknown`. Davor 18:44:38–18:45:53 `unavailable` (~75 s, wie ein
+  Geräteneustart). SOC, Ladeleistung (`zendure_power_import`), Spannung kommen
+  weiter.
+- Folge: Gielz rechnet mit dem unknown-Wert Entladung 0 (kein Templatefehler,
+  Hash `bd38f04c4ae8274c` unverändert). Keine Entladung, keine Relaisschaltung,
+  das Haus bezieht alles aus dem Netz (~7,7 kWh vom 13.11. 19 Uhr bis 14.11.
+  14 Uhr). Der Akku lädt nur aus PV (`zendure_power_from_home` = 0, also keine
+  Netzladung). Die Power-Flow-Karte zeigt deshalb fälschlich Netz → Akku.
+- Vermutete Ursache: neue Zendure-Firmware (Muster wie Gielz-Issue #344, dort
+  für 2400 AC+/NL gemeldet). Gielz-Release v20261113 (13.11. 09:38Z): „PVstatus:
+  Integration is working again with the latest Zendure firmware“. Live-Paket
+  v20260824. Firmware-Version und Herkunft des Updates (automatisch oder von
+  Hand) noch offen; Normen prüft in der Zendure-App. Die Entscheidung vom
+  10.11. (V2.0.5 nicht installieren) ist damit möglicherweise überholt.
+- Plan (Dr. Schmidt, ZURÜCK in erster Form, Auflagen eingearbeitet): Backup,
+  neue Paketdatei „English (Global)“ v20261113 bereitlegen, alte Datei
+  außerhalb von `/config/packages/` sichern, Diff alt/neu (Studio Code Server)
+  vor dem Neustart durch Dr. Schmidt prüfen lassen (rest_command-Namen/Payload,
+  unique_ids, input_number-Bereiche/initial, REST-Ressourcen/scan_interval,
+  PVstatus-Template), PK-HW1 erneut anwenden, Automation NICHT neu
+  importieren, config_check valid, nur Neustart (kein rest.reload) mit
+  Normens Ja.
+- Ist-Stand Einstellwerte vor dem Update (14.11. ~14:30):
+  `input_number.zendure_setting_minimum_allowed_state_of_charge` 18,
+  `..._maximum_allowed_state_of_charge` 100, `..._max_discharge_power` 650,
+  `..._max_charge_power` 2400, `..._start_charging_at` −300,
+  `..._start_discharging_at` 100, `..._discharge_buffer` 5,
+  `..._charge_buffer` 50, `..._standby_delay` 15,
+  `input_boolean.zendure_setting_pv_export_disabled` off,
+  `input_boolean.zendure_setting_soc_protection_disabled` off,
+  `input_text.zendure_setting_ip_address` 192.168.178.101.
+- Nebenbefund: Power Flow Card Plus v0.6.1 hat Normen bereits am 13.11. um
+  18:26:43 selbst im Marketplace eingespielt (Abnahme Dr. Schmidt am 14.11.:
+  Ressource `?v=618081815-v0.6.1`, keine Logeinträge). Mein `update.install`
+  wurde zweimal mit „read the warning first“ abgewiesen, vermutlich gilt die
+  Bestätigung je Benutzerkonto.
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
