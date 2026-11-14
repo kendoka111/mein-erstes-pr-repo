@@ -1208,6 +1208,9 @@ Offen:
   v20260824. Firmware-Version und Herkunft des Updates (automatisch oder von
   Hand) noch offen; Normen prüft in der Zendure-App. Die Entscheidung vom
   10.11. (V2.0.5 nicht installieren) ist damit möglicherweise überholt.
+  **Nachtrag 14.11.:** Normen bestätigt Firmware **V2.0.5** auf dem Gerät
+  (Zendure-App). Damit betrifft #344 auch den SolarFlow 2400 Pro mit dem
+  Global-Paket. Ob das Update automatisch kam, ist noch offen.
 - Plan (Dr. Schmidt, ZURÜCK in erster Form, Auflagen eingearbeitet): Backup,
   neue Paketdatei „English (Global)“ v20261113 bereitlegen, alte Datei
   außerhalb von `/config/packages/` sichern, Diff alt/neu (Studio Code Server)
