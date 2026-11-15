@@ -1246,8 +1246,17 @@ Offen:
   - system_log: nur bekannte Startmeldungen (`unknown/properties/report`,
     55× „Platform rest not ready“), kein `api/v1/data`, keine
     `properties/write`-4xx, keine Unique-ID-Meldungen, keine Templatefehler.
-  - Offen: PV-Werte bei Tageslicht und 24-h-Nachbeobachtung FW 2.0.5
-    (Bypass-Hänger, REST-Aussetzer, 4xx) am 15.11.
+- **Nachkontrolle 15.11. 12:30** (Neustart 14.11. 16:36 bis jetzt, ~20 h):
+  - PV bei Tageslicht: `pv_total` 92 W = `pv_to_battery` 92 + `pv_to_home` 0,
+    `power_import` 92 (Ladung aus PV), Tagesertrag bis dahin 0,27 kWh (trüb).
+  - Entladung 14.11. 16:36–19:12 durchgehend (2,6 h, 649/650 W), dann bei
+    18 % Ladevorrang „Smart Charge Only“ wie vorgesehen; SOC jetzt 26 %.
+  - Keine längeren unknown-Phasen der vier Sensoren; `charging_mode` nur
+    3× unavailable, zusammen 12 s (REST-Aussetzer, 3 Timeouts im Log).
+  - Keine `properties/write`-4xx im system_log, Bypass-Merker nie an.
+  - Gielz-Templatewarnungen (21×) nur während der 3 kurzen Aussetzer.
+  - **PK-PV1 abgenommen.** Offen nur: reguläres Paket v20261113 bei
+    Gelegenheit (PK-HW1 erneut, PK-PV1 entfällt).
 - Plan (Dr. Schmidt, ZURÜCK in erster Form, Auflagen eingearbeitet): Backup,
   neue Paketdatei „English (Global)“ v20261113 bereitlegen, alte Datei
   außerhalb von `/config/packages/` sichern, Diff alt/neu (Studio Code Server)
