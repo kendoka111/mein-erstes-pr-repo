@@ -1,0 +1,38 @@
+# Live-Stand automation.zendure_wachter_sensoren_liefern_keine_frischen_werte_mehr, gelesen 07.10.2026, config_hash 97f4bb24f4f01830
+# Exakte Kopie der Live-Konfiguration (Sicherungspunkt vor der Verschlankung).
+- id: zendure_waechter_sensor_eingefroren
+  alias: 'Zendure Wächter: Sensoren liefern keine frischen Werte mehr'
+  description: Fehlerklasse 3 aus dem Audit. Nach dem REST-Reload vom 06.09. 13:26 Uhr blieben mehrere Zendure-Sensoren auf altem Stand haengen (last_reported aktualisierte sich nicht mehr), obwohl das Geraet weiterlief. Prueft alle 15 Minuten eine feste Liste kritischer Sensoren auf last_reported aelter als 10 Minuten. Template statt native for:-Bedingung, weil ein natives state-for nur auf last_changed (Wertaenderung) reagiert, nicht auf ausbleibende Aktualisierung bei gleichbleibendem Wert.
+  triggers:
+  - minutes: /15
+    trigger: time_pattern
+  conditions:
+  - condition: template
+    value_template: |-
+      {% set kritisch = ['sensor.zendure_charging_mode', 'sensor.zendure_power', 'sensor.zendure_soc_limit_status', 'sensor.zendure_calibrating', 'sensor.zendure_error', 'sensor.zendure_storage_mode', 'sensor.zendure_total_state_of_charge'] %}
+      {% set grenze = now() - timedelta(minutes=10) %}
+      {% set ns = namespace(liste=[]) %}
+      {% for eid in kritisch %}
+        {% if states[eid] is not none and states[eid].last_reported < grenze %}
+          {% set ns.liste = ns.liste + [eid] %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.liste | count > 0 }}
+  actions:
+  - action: notify.mobile_app_sm_a725f
+    data:
+      message: |-
+        {% set kritisch = ['sensor.zendure_charging_mode', 'sensor.zendure_power', 'sensor.zendure_soc_limit_status', 'sensor.zendure_calibrating', 'sensor.zendure_error', 'sensor.zendure_storage_mode', 'sensor.zendure_total_state_of_charge'] %}
+        {% set grenze = now() - timedelta(minutes=10) %}
+        {% set ns = namespace(liste=[]) %}
+        {% for eid in kritisch %}
+          {% if states[eid] is not none and states[eid].last_reported < grenze %}
+            {% set ns.liste = ns.liste + [eid] %}
+          {% endif %}
+        {% endfor %}
+        Diese Zendure-Sensoren liefern seit über 10 Minuten keine frischen Werte mehr: {{ ns.liste | join(', ') }}. Vermutlich REST-Reload-Nachwirkung (Unique-ID-Kollision) - HA-Core-Neustart hilft meist.
+      title: 'Zendure: Sensoren eingefroren'
+  max_exceeded: silent
+  mode: single
+  trace:
+    stored_traces: 256

@@ -1,0 +1,70 @@
+# Balkonheizung: Moduswahl (26.09.2026)
+#
+# Hintergrund: Erste Dashboard-Umsetzung (zwei getrennte Kacheln fuer
+# switch.mystrom_device und input_boolean.balkonheizung_automatik_aktiv)
+# war nicht das, was Normen wollte - er wollte einen einzelnen Umschalter
+# mit drei Zustaenden ("Panel aus", "Panel an", "Automatisch"), keine zwei
+# Boxen nebeneinander. Umgesetzt als input_select mit denselben
+# Auswahl-Buttons wie die bereits bestehende "Akku-Modus"-Kachel
+# (input_select.zendure_operation_mode, gleiches Kartenmuster:
+# type: tile, features: [select-options], grid_options columns: 12).
+#
+# input_select.balkonheizung_modus (Optionen: "Aus", "An", "Automatisch")
+# ist die einzige Bedienoberflaeche. Diese Automatisierung setzt bei
+# "Aus"/"An" das Panel (switch.mystrom_device) fest auf aus/an. Bei
+# "Automatisch" tut sie nichts: automation.balkonheizung_pv_uberschuss
+# liest den Modus direkt und steuert das Panel ab dann anhand der
+# Netzeinspeisung (siehe balkon_heizung_ueberschuss.yaml) - kann je nach
+# aktuellem Zustand bis zu 5 Minuten dauern (naechster Resync-Tick dort),
+# bewusst in Kauf genommen, siehe Kommentare in balkon_heizung_ueberschuss.yaml.
+#
+# Bewusst keine Rueck-Synchronisation: wird switch.mystrom_device direkt (z. B. per App oder
+# Sprachbefehl) statt ueber den Modus-Schalter geaendert, zieht
+# input_select.balkonheizung_modus NICHT automatisch nach. Einfachheit vor
+# Vollstaendigkeit - der Modus-Schalter ist die vorgesehene Bedienoberflaeche.
+#
+# Kein Debounce/Race-Risiko wie bei balkon_heizung_ueberschuss.yaml: hier
+# steuert ausschliesslich ein bewusster, seltener Nutzer-Klick, keine
+# rauschende Sensor-Schwelle - daher ohne Dr.-Schmidt-Mehrfachrunde
+# umgesetzt, nur einmalig gegengeprueft.
+
+# Verschlankung Schritt 2 (09./10.10.): Zwischenschalter
+# input_boolean.balkonheizung_automatik_aktiv entfernt, Zweig "Automatisch"
+# entfaellt. Live 09.10. ca. 21:55, Hash 101834b6f2b95701 -> cce95d110eb2832e,
+# Helfer geloescht 10.10. Stand vorher: live_stand_2026-10-07/.
+
+- id: balkon_heizung_moduswahl
+  alias: "Balkonheizung: Moduswahl (Aus/An/Automatisch)"
+  description: >-
+    Setzt das Panel (switch.mystrom_device) bei "Aus" aus und bei "An" an.
+    Bei "Automatisch" tut diese Automatisierung nichts:
+    automation.balkonheizung_pv_uberschuss liest input_select.balkonheizung_modus
+    direkt und steuert das Panel ab dann anhand der Netzeinspeisung. Keine
+    Rück-Synchronisation: wer das Panel direkt umschaltet, muss den
+    Modus-Schalter separat nachziehen. Bis 09.10. lief das über den
+    Zwischenschalter input_boolean.balkonheizung_automatik_aktiv.
+  triggers:
+    - trigger: state
+      entity_id:
+        - input_select.balkonheizung_modus
+  actions:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: input_select.balkonheizung_modus
+              state: "Aus"
+          sequence:
+            - action: switch.turn_off
+              target:
+                entity_id: switch.mystrom_device
+        - conditions:
+            - condition: state
+              entity_id: input_select.balkonheizung_modus
+              state: "An"
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.mystrom_device
+      default: []
+  mode: single
+  max_exceeded: silent
