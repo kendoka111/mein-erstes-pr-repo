@@ -1,4 +1,16 @@
-# Lade-Hänger automatisch lösen (Fehlerklasse 6, ENTWURF v2 24.11.2026, nicht live)
+# Lade-Hänger automatisch lösen (Fehlerklasse 6)
+#
+# Live seit 24.11.2026 14:52 (Normens Ja, Freigabe Dr. Schmidt mit Auflagen):
+#   automation.zendure_lade_hanger_automatisch_losen
+#     (id zendure_ladehaenger_autoloesung, config_hash b49532200717e814,
+#      identisch mit dieser Datei)
+#   input_boolean.zendure_ladehaenger_autoloesung_laeuft (UI-Helfer, ohne
+#     initial, angelegt 14:50, Name "Zendure Ladehaenger-Autoloesung laeuft")
+# Abnahme der Wirkung erst beim nächsten echten Hänger (Trace, Discharging
+# binnen 90 s, Rückkehr Smart Matching, Merker off).
+# Bewusst behaltene Best-Practice-Abweichungen: Template-Bedingung für
+# "SOC > Minimum + 5" (numeric_state kann keinen Versatz zu einer anderen
+# Entity), wait_template statt wait_for_trigger (prüft den aktuellen Zustand).
 #
 # Befund 24.11.2026 (FW V2.0.5): Gielz setzte um 13:44:21–31 die Ladeleistung
 # 202 -> 159 -> 0 W. Das Gerät lud danach 57 Min. weiter mit 159 W aus dem Netz

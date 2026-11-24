@@ -1305,8 +1305,14 @@ Offen:
   Abnahme 14:42:30 (Trace b7de796a…): Gielz-Zweig „Discharging (Balancing)“,
   outputLimit 323 W, Netzbezug ~−5 W, `power_from_home` 0, keine 4xx.
   Hänger-Dauer 13:44:31–14:41:06 (57 Min., ~0,15 kWh Netzladung).
-- **Dauerhafte Erkennung:** Entwurf `zendure_ladehaenger_autoloesung.yaml`
-  (noch nicht live, Prüfung Dr. Schmidt).
+- **Dauerhafte Erkennung:** `zendure_ladehaenger_autoloesung.yaml`, live seit
+  24.11. 14:52 (`automation.zendure_lade_hanger_automatisch_losen`, Hash
+  `b49532200717e814`, Merker `input_boolean.zendure_ladehaenger_autoloesung_laeuft`).
+  Dr. Schmidt: erste Fassung ZURÜCK (eigener Merker, wait_template), v2
+  FREIGABE mit Auflagen (ASCII-Helfername, stored_traces 256). Kein Gielz-Patch
+  G8: Wiederholter Ladebefehl 0 als Lösung nicht belegt. Nach dem Einspielen:
+  validation null, Automation on, Merker off, Signatur gegen Live-Zustand
+  false. Wirkungsabnahme beim nächsten echten Hänger.
 
 ---
 
