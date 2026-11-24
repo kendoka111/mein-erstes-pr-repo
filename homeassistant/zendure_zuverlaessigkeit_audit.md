@@ -1282,6 +1282,34 @@ Offen:
 
 ---
 
+## Fehlerklasse 6 — Lade-Hänger: Netzladung trotz Ladevorgabe 0 (24.11.2026)
+
+- **Befund:** FW V2.0.5, Modus Smart Matching, SOC 54 %, soc_limit „Normal
+  Operation“ (kein CLR). Gielz setzte bei kurzem Überschuss 13:44:21–31 die
+  Ladeleistung 202 → 159 → 0 W. Das Gerät lud danach weiter mit **159 W aus dem
+  Netz** (`sensor.zendure_power_from_home` 159, `charging_mode` Charging,
+  `relay_mode` Oplaadstand, `set_charge_power` 0), dazu PV in den Akku.
+  Netzbezug ~300 W.
+- **Deadlock in Gielz** (Trace 14:32:30, run 3e5cc6db…): Entladestart verlangt
+  `sensor.zendure_power` < 30, Entladeanpassung < 0, beide sahen +159; die
+  Ladeanpassung sah keinen Anlass (Vorgabe schon 0). Weder Bypass-Wächter noch
+  Bypass-Autolösung erfassen den Fall (brauchen CLR). Kein `properties/write`-4xx.
+- **Vorläufer:** 24.11. 11:52:01 gleiches Muster (Vorgabe 0, Netzladung 305 W
+  noch 64 s), dort durch den nächsten Gielz-Befehl (82 W, dann 0) gelöst.
+  Abgrenzung: 20.11. 01:09 Netzladung ~1240 W bei SOC 13 %, Modus Smart Charge
+  Only = Geräte-Eigenschutz, kein Hänger. 17.11. 11:00 = SOC-Schutz G3.
+- **Manuelle Lösung (Normens Ja, Freigabe Dr. Schmidt mit Auflagen):**
+  14:41:02 Modus → Quick Discharge (outputLimit 800 W, Relais Ontlaadstand),
+  14:41:06 Discharging, Netzladung 0, Einspeisung kurz ~320 W
+  (800 W − Hauslast); 14:41:18 zurück auf Smart Matching, Merker nicht gesetzt.
+  Abnahme 14:42:30 (Trace b7de796a…): Gielz-Zweig „Discharging (Balancing)“,
+  outputLimit 323 W, Netzbezug ~−5 W, `power_from_home` 0, keine 4xx.
+  Hänger-Dauer 13:44:31–14:41:06 (57 Min., ~0,15 kWh Netzladung).
+- **Dauerhafte Erkennung:** Entwurf `zendure_ladehaenger_autoloesung.yaml`
+  (noch nicht live, Prüfung Dr. Schmidt).
+
+---
+
 ## Externe Bestätigung — bekannter Zendure-Fehler (nicht Gielz-Paket, nicht HA)
 
 Websuche vom 06.09. ergab ein passendes, öffentliches GitHub-Issue im
