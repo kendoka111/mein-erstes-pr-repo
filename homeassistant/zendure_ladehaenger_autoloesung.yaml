@@ -1,4 +1,4 @@
-# Lade-Hänger automatisch lösen (Fehlerklasse 6, ENTWURF 24.11.2026, nicht live)
+# Lade-Hänger automatisch lösen (Fehlerklasse 6, ENTWURF v2 24.11.2026, nicht live)
 #
 # Befund 24.11.2026 (FW V2.0.5): Gielz setzte um 13:44:21–31 die Ladeleistung
 # 202 -> 159 -> 0 W. Das Gerät lud danach 57 Min. weiter mit 159 W aus dem Netz
@@ -8,8 +8,8 @@
 # Entladeanpassung < 0, beide sahen +159; die Ladeanpassung sah keinen Anlass,
 # weil die Vorgabe schon 0 war. Deadlock. Gleiches Muster am 24.11. 11:52:01,
 # dort nach 64 s durch einen neuen Gielz-Befehl (82 W, dann 0) von selbst
-# gelöst. Manuell gelöst 14:41 mit Quick Discharge: Discharging nach 4 s,
-# dann zurück auf Smart Matching.
+# gelöst (die 2 Min. "for" schließen diesen Fall aus). Manuell gelöst 14:41
+# mit Quick Discharge: Discharging nach 4 s, dann zurück auf Smart Matching.
 #
 # Abgrenzung:
 #  - Legitime Netzladung durch Gielz (Überschuss aufnehmen, SOC-Schutz G3)
@@ -19,16 +19,25 @@
 #    SOC > Minimum + 5 ausgeschlossen.
 #  - Bypass-Hänger (Fehlerklasse 1) braucht "Charging Limit Reached"; diese
 #    Signatur verlangt "Normal Operation". Keine Überschneidung.
-#  - Ladevorrang (40/18) schaltet nur an den Grenzen und nie in Smart Matching
-#    während SOC > 23 %; kein Konflikt.
+#  - Ladevorrang (40/18) schaltet nur an den Grenzen; kein Konflikt.
 #
 # Lösung wie Fehlerklasse 1, aber kurz: Quick Discharge (outputLimit 800 W,
 # Relais auf Entladen), warten bis "Discharging" (max. 90 s), sofort zurück
-# auf Smart Matching. Einspeisung höchstens ~800 W minus Hauslast für die
+# auf Smart Matching. Einspeisung höchstens 800 W minus Hauslast für die
 # Sekunden bis zum Rückwechsel (14:41: ~320 W für ~10 s).
-# Kein eigener Merker: Steht nach einem HA-Neustart noch Quick Discharge,
-# setzt die Bypass-Autolösung (Auslöser homeassistant start) auf Smart
-# Matching zurück.
+#
+# Eigener Merker input_boolean.zendure_ladehaenger_autoloesung_laeuft
+# (UI-Helfer, ohne initial): an vor Quick Discharge, aus direkt nach der
+# Rückkehr auf Smart Matching. Wird die Automation mitten im Lauf neu geladen
+# (Bearbeiten, automation.reload) oder HA neu gestartet, bleibt der Merker an;
+# der Aufräumzweig stellt dann beim nächsten Trigger (spätestens 5 Min.) auf
+# Smart Matching zurück. Quick Discharge hat keinen SOC-Stopp und darf nie
+# stehen bleiben (Auflage A5 vom 05.10.). Den Bypass-Merker bewusst nicht
+# mitnutzen (sein 5-Min.-Takt würde einen laufenden Versuch abbrechen).
+#
+# Grenze: set_charge_power wird als String "0" verglichen (state mit for;
+# numeric_state kennt kein for). Liefert der Sensor einmal "0.0", greift die
+# Automation nicht – sie handelt dann nicht fälschlich, sondern gar nicht.
 #
 # Höchstens ein Lauf pro Stunde (mode single + delay). Meldung per Push.
 
@@ -41,8 +50,9 @@
     Signatur 2 Min. lang: Smart Matching, Normal Operation, Charging,
     Netzladung über 20 W, Ladevorgabe 0, SOC mehr als 5 % über Minimum,
     keine Kalibrierung. Lösung: kurz Quick Discharge, sobald Discharging
-    (spätestens 90 s) zurück auf Smart Matching. Höchstens ein Lauf pro
-    Stunde.
+    (spätestens 90 s) zurück auf Smart Matching. Eigener Merker sichert
+    gegen Reload oder Neustart mitten im Lauf; der Aufräumzweig stellt dann
+    auf Smart Matching zurück. Höchstens ein Lauf pro Stunde.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.zendure_power_from_home
@@ -50,83 +60,125 @@
       for: "00:02:00"
     - trigger: time_pattern
       minutes: "/5"
+    - trigger: homeassistant
+      event: start
   conditions:
-    - condition: state
-      entity_id: input_select.zendure_operation_mode
-      state: "Smart Matching"
-      for: "00:02:00"
-    - condition: state
-      entity_id: sensor.zendure_soc_limit_status
-      state: "Normal Operation"
-    - condition: state
-      entity_id: sensor.zendure_charging_mode
-      state: "Charging"
-      for: "00:02:00"
-    - condition: numeric_state
-      entity_id: sensor.zendure_power_from_home
-      above: 20
-    - condition: state
-      entity_id: sensor.zendure_set_charge_power
-      state: "0"
-      for: "00:02:00"
-    - condition: state
-      entity_id: sensor.zendure_calibrating
-      state: "No"
-    - alias: "SOC mehr als 5 % über dem Minimum (kein Geräte-Eigenschutz)"
-      condition: template
-      value_template: >
-        {{ states('sensor.zendure_total_state_of_charge') | float(0)
-           > states('sensor.zendure_minimum_state_of_charge') | float(100) + 5 }}
-  actions:
-    - action: notify.mobile_app_sm_a725f
-      continue_on_error: true
-      data:
-        title: "Zendure: Lade-Hänger, Lösungsversuch"
-        message: >-
-          Netzladung {{ states('sensor.zendure_power_from_home') }} W bei
-          Ladevorgabe 0, Akku {{ states('sensor.zendure_total_state_of_charge') }} %.
-          Schalte kurz auf Quick Discharge.
-    - action: input_select.select_option
-      target:
-        entity_id: input_select.zendure_operation_mode
-      data:
-        option: "Quick Discharge"
-    - wait_for_trigger:
-        - trigger: state
-          entity_id: sensor.zendure_charging_mode
-          to: "Discharging"
-      timeout: "00:01:30"
-      continue_on_timeout: true
-    - action: input_select.select_option
-      target:
-        entity_id: input_select.zendure_operation_mode
-      data:
-        option: "Smart Matching"
-    - delay: "00:01:00"
-    - choose:
-        - conditions:
+    - condition: or
+      conditions:
+        - condition: state
+          entity_id: input_boolean.zendure_ladehaenger_autoloesung_laeuft
+          state: "on"
+        - alias: "Lade-Hänger-Signatur"
+          condition: and
+          conditions:
+            - condition: state
+              entity_id: input_select.zendure_operation_mode
+              state: "Smart Matching"
+              for: "00:02:00"
+            - condition: state
+              entity_id: sensor.zendure_soc_limit_status
+              state: "Normal Operation"
+            - condition: state
+              entity_id: sensor.zendure_charging_mode
+              state: "Charging"
+              for: "00:02:00"
             - condition: numeric_state
               entity_id: sensor.zendure_power_from_home
-              below: 20
+              above: 20
+            - condition: state
+              entity_id: sensor.zendure_set_charge_power
+              state: "0"
+              for: "00:02:00"
+            - condition: state
+              entity_id: sensor.zendure_calibrating
+              state: "No"
+            - alias: "SOC mehr als 5 % über dem Minimum (kein Geräte-Eigenschutz)"
+              condition: template
+              value_template: >
+                {{ states('sensor.zendure_total_state_of_charge') | float(0)
+                   > states('sensor.zendure_minimum_state_of_charge') | float(100) + 5 }}
+  actions:
+    - choose:
+        - alias: "Aufräumen nach abgebrochenem Lauf"
+          conditions:
+            - condition: state
+              entity_id: input_boolean.zendure_ladehaenger_autoloesung_laeuft
+              state: "on"
           sequence:
-            - action: notify.mobile_app_sm_a725f
-              continue_on_error: true
-              data:
-                title: "Zendure: Lade-Hänger gelöst"
-                message: >-
-                  Netzladung beendet, Lademodus
-                  {{ states('sensor.zendure_charging_mode') }}, Geräteabgabe
-                  {{ states('sensor.zendure_power') }} W.
+            - if:
+                - condition: state
+                  entity_id: input_select.zendure_operation_mode
+                  state: "Quick Discharge"
+              then:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.zendure_operation_mode
+                  data:
+                    option: "Smart Matching"
+                - action: notify.mobile_app_sm_a725f
+                  continue_on_error: true
+                  data:
+                    title: "Zendure: Quick Discharge zurückgesetzt"
+                    message: >-
+                      Ein Lade-Hänger-Lösungsversuch wurde abgebrochen
+                      (Reload oder Neustart). Modus auf "Smart Matching"
+                      zurückgestellt.
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.zendure_ladehaenger_autoloesung_laeuft
       default:
         - action: notify.mobile_app_sm_a725f
           continue_on_error: true
           data:
-            title: "Zendure: Lade-Hänger NICHT gelöst"
+            title: "Zendure: Lade-Hänger, Lösungsversuch"
             message: >-
-              Weiter {{ states('sensor.zendure_power_from_home') }} W Netzladung,
-              Lademodus {{ states('sensor.zendure_charging_mode') }}, Modus
-              {{ states('input_select.zendure_operation_mode') }}. Nächster
-              Versuch frühestens in einer Stunde. Von Hand prüfen.
-    - delay: "01:00:00"
+              Netzladung {{ states('sensor.zendure_power_from_home') }} W bei
+              Ladevorgabe 0, Akku {{ states('sensor.zendure_total_state_of_charge') }} %.
+              Schalte kurz auf Quick Discharge.
+        - action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.zendure_ladehaenger_autoloesung_laeuft
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.zendure_operation_mode
+          data:
+            option: "Quick Discharge"
+        - wait_template: "{{ is_state('sensor.zendure_charging_mode', 'Discharging') }}"
+          timeout: "00:01:30"
+          continue_on_timeout: true
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.zendure_operation_mode
+          data:
+            option: "Smart Matching"
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.zendure_ladehaenger_autoloesung_laeuft
+        - delay: "00:01:00"
+        - choose:
+            - conditions:
+                - condition: numeric_state
+                  entity_id: sensor.zendure_power_from_home
+                  below: 20
+              sequence:
+                - action: notify.mobile_app_sm_a725f
+                  continue_on_error: true
+                  data:
+                    title: "Zendure: Lade-Hänger gelöst"
+                    message: >-
+                      Netzladung beendet, Lademodus
+                      {{ states('sensor.zendure_charging_mode') }}, Geräteabgabe
+                      {{ states('sensor.zendure_power') }} W.
+          default:
+            - action: notify.mobile_app_sm_a725f
+              continue_on_error: true
+              data:
+                title: "Zendure: Lade-Hänger NICHT gelöst"
+                message: >-
+                  Weiter {{ states('sensor.zendure_power_from_home') }} W
+                  Netzladung, Lademodus {{ states('sensor.zendure_charging_mode') }},
+                  Modus {{ states('input_select.zendure_operation_mode') }}.
+                  Nächster Versuch frühestens in einer Stunde. Von Hand prüfen.
+        - delay: "01:00:00"
   mode: single
   max_exceeded: silent
