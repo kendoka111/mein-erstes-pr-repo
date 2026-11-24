@@ -1312,7 +1312,8 @@ Offen:
   FREIGABE mit Auflagen (ASCII-Helfername, stored_traces 256). Kein Gielz-Patch
   G8: Wiederholter Ladebefehl 0 als Lösung nicht belegt. Nach dem Einspielen:
   validation null, Automation on, Merker off, Signatur gegen Live-Zustand
-  false. Wirkungsabnahme beim nächsten echten Hänger.
+  false. Erster 5-Min.-Takt 14:55:00 (Trace 6f48dbca…): failed_conditions,
+  keine Aktion, Merker off. Wirkungsabnahme beim nächsten echten Hänger.
 
 ---
 
