@@ -182,3 +182,5 @@
         - delay: "01:00:00"
   mode: single
   max_exceeded: silent
+  trace:
+    stored_traces: 256
