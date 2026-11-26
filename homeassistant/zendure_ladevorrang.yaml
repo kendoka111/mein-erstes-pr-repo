@@ -7,12 +7,18 @@
 # Entity:  automation.zendure_ladevorrang_hysterese_40_18
 #          (entity_id bleibt trotz neuer Untergrenze 25 % unveraendert,
 #          Wächter und Doku verweisen darauf)
-# Aenderung 26.11.2026 (Vorschlag): Untergrenze 18 -> 25 %, zusammen mit
+# Aenderung 26.11.2026, live seit 07:53 (Freigabe Dr. Schmidt mit Auflagen),
+#          config_hash 18ebf52eaf235ee8 (vorher de58a573927a3f65). Abnahme
+#          08:00-Resync (Trace 9b16fee2…): SOC 20, Smart Charge Only, kein
+#          Zweig erfuellt, keine Aktion. Untergrenze 18 -> 25 %, zusammen mit
 #          Mindest-SOC 18 -> 25 %. Grund: Eigenschutz-Nachtladung der
 #          Firmware (Audit, Abschnitt 15.10. und Wiederholungen). Im
 #          Winter wird der Akku nie voll, der Tagesdurchsatz bleibt
 #          gleich, nur der Sockel steigt einmalig um ~170 Wh.
-#          Rueckweg im Fruehjahr: beides wieder auf 18.
+#          Mindest-SOC 25 folgt erst bei SOC >= 26 (Schritt 2).
+#          Rueckweg (Fruehjahr): Helfer 25 -> 18, diese Datei per git revert
+#          und live zurueckspielen, Hash-Abgleich auf de58a573927a3f65,
+#          Waechter-description zurueck.
 #          Achtung: HA leitet die entity_id aus dem alias ab, nicht aus id:.
 #          Der Speicherschluessel (unique_id) ist zendure_ladevorrang_hysterese
 #          und deckt sich mit dem id: im Rumpf.
