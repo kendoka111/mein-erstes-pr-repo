@@ -5,6 +5,14 @@
 # Stand:   Angelegt am 29.08.2026, 09:25 (Europe/Berlin), ueber die Config-API.
 #          Freigabe durch Dr. Schmidt in Fassung af3a007.
 # Entity:  automation.zendure_ladevorrang_hysterese_40_18
+#          (entity_id bleibt trotz neuer Untergrenze 25 % unveraendert,
+#          Wächter und Doku verweisen darauf)
+# Aenderung 26.11.2026 (Vorschlag): Untergrenze 18 -> 25 %, zusammen mit
+#          Mindest-SOC 18 -> 25 %. Grund: Eigenschutz-Nachtladung der
+#          Firmware (Audit, Abschnitt 15.10. und Wiederholungen). Im
+#          Winter wird der Akku nie voll, der Tagesdurchsatz bleibt
+#          gleich, nur der Sockel steigt einmalig um ~170 Wh.
+#          Rueckweg im Fruehjahr: beides wieder auf 18.
 #          Achtung: HA leitet die entity_id aus dem alias ab, nicht aus id:.
 #          Der Speicherschluessel (unique_id) ist zendure_ladevorrang_hysterese
 #          und deckt sich mit dem id: im Rumpf.
@@ -36,18 +44,19 @@
 #   keine Kollision.
 
 id: zendure_ladevorrang_hysterese
-alias: Zendure Ladevorrang (Hysterese 40 % / 18 %)
+alias: Zendure Ladevorrang (Hysterese 40 % / 25 %)
 description: >-
   Ladevorrang mit Hysterese fuer den Zendure-Speicher. Faellt der Ladestand
-  auf 18 %, wird von "Smart Matching" auf "Smart Charge Only" umgeschaltet:
+  auf 25 %, wird von "Smart Matching" auf "Smart Charge Only" umgeschaltet:
   die Entladung ist gesperrt, der Akku laedt aus PV-Ueberschuss. Ab 40 %
   wird auf "Smart Matching" zurueckgeschaltet und der Speicher versorgt
-  wieder das Haus, bis er erneut bei 18 % steht.
+  wieder das Haus, bis er erneut bei 25 % steht.
 
-  Faellt der SOC unter die Mindest-SOC von 18 %, laedt das Paket auch im
-  gesperrten Zustand "Smart Charge Only" mit 1200 W aus dem Netz nach. Das
-  ist Verhalten des Pakets, nicht dieser Automation, und bleibt bewusst
-  unangetastet.
+  Faellt der SOC unter die Mindest-SOC (25 %), laedt das Paket auch im
+  gesperrten Zustand "Smart Charge Only" mit 1200 W aus dem Netz nach
+  (lokal per G3 nur 11-15 Uhr). Das ist Verhalten des Pakets, nicht dieser
+  Automation, und bleibt bewusst unangetastet. Die Untergrenze dieser
+  Automation muss immer gleich der Mindest-SOC sein.
 
   Der Zustand des Automaten liegt ausschliesslich im input_select - es gibt
   bewusst keinen Merker-Helper und keinen Hauptschalter, die Regelung laeuft
@@ -55,7 +64,7 @@ description: >-
 
   Gewolltes Verhalten an truebe Tagen: wird 40 % nicht erreicht, bleibt der
   Speicher gesperrt und sammelt still ein, bis er die Schwelle am naechsten
-  Tag schafft. Das kostet wenig, da er bei 18 % ohnehin nichts Nutzbares
+  Tag schafft. Das kostet wenig, da er bei 25 % ohnehin nichts Nutzbares
   vorhaelt, und spart die Rundlaufverluste des Pendelns.
 
   Steht der Modus auf einem dritten Wert (Quick Charge, Standby, Dynamic
@@ -68,7 +77,7 @@ description: >-
   Matching" und "Smart Charge Only". In allen uebrigen Modi - unter anderem
   Manual, Quick Discharge, Smart Discharge Only, Dynamic Smart Matching und
   Dynamic Trading + Smart Matching - haelt die Automation still, dort greift
-  bei 18 % kein Schutz durch diese Automation.
+  bei 25 % kein Schutz durch diese Automation.
 
 mode: single
 max_exceeded: silent
@@ -86,16 +95,16 @@ triggers:
       ab 40 %. Trotz des Alias "40 %" ist 39 hier der korrekte Wert.
   - trigger: numeric_state
     entity_id: sensor.zendure_total_state_of_charge
-    below: 19
+    below: 26
     id: sperren
     note: >-
-      below ist exklusiv - feuert ab 18 %. Das Paket beendet die aktive
+      below ist exklusiv - feuert ab 25 %. Das Paket beendet die aktive
       Entladung an der Mindest-SOC (der Entladezweig ist auf
       total_soc > min_soc gegattert) - genau daher das Pendeln. Der SOC
-      sinkt durch Eigenverbrauch und Standby-Verluste trotzdem auf 17 %,
-      belegt in drei aufeinanderfolgenden Naechten (27., 28. und 29.08.);
+      sinkt durch Eigenverbrauch und Standby-Verluste trotzdem einen Punkt
+      unter die Grenze (bei 18 % belegt 27., 28. und 29.08.);
       der Schutzzweig holt ihn dann aus dem Netz zurueck. Fuer diesen
-      Trigger ohne Belang: die Flanke 19 -> 18 hat da bereits gefeuert,
+      Trigger ohne Belang: die Flanke 26 -> 25 hat da bereits gefeuert,
       ein weiteres Absinken erzeugt keine neue - der Zeit-Resync greift
       ohnehin zustandsbasiert.
   - trigger: state
@@ -143,11 +152,11 @@ actions:
               entity_id: input_select.zendure_operation_mode
             data:
               option: Smart Matching
-      - alias: Ladevorrang - Entladung sperren (SOC <= 18 %)
+      - alias: Ladevorrang - Entladung sperren (SOC <= 25 %)
         conditions:
           - condition: numeric_state
             entity_id: sensor.zendure_total_state_of_charge
-            below: 19
+            below: 26
           - condition: state
             entity_id: input_select.zendure_operation_mode
             state: Smart Matching
@@ -166,7 +175,7 @@ actions:
       bleiben fuer die Trace-Lesbarkeit erhalten.
 
       Kein default-Zweig: Stillhalten ist der gewollte Normalfall. Im
-      Totband 19-39 % sind beide Modi zulaessig, dort wird nichts geaendert.
+      Totband 26-39 % sind beide Modi zulaessig, dort wird nichts geaendert.
 
       Faellt der SOC-Sensor auf unavailable, sind beide numeric_state-
       Bedingungen false und der Lauf endet folgenlos - in beide Richtungen
