@@ -971,8 +971,25 @@ setzen (G4 entspricht dann diesem Löschen).
   `set_charge_power` blieb 0, Modus Smart Charge Only (Ladevorrang), die
   Lade-Hänger-Autolösung griff zu Recht nicht. Balkonheizung war aus;
   über Nacht nur 1 % SOC-Verlust, also keine nennenswerte Akkuheizung.
-  Keine Änderung: Kosten ~5–6 ct je Vorkommen, eine Vollladung zur
+  Keine Änderung: Der nachgeladene Strom wird später genutzt, verloren
+  sind nur Wandlerverluste (~1 ct je Vorkommen). Eine Vollladung zur
   Kalibrierung ist im Winter kaum erreichbar.
+- **Auslöser (Analyse 26.11.):** Zweistufig, beides Gerätefirmware.
+  1. SOC-Korrektur nach Ruhespannung: Im Standby sinkt die Packspannung
+     über Nacht langsam (26.11.: 47,91 V um 16 Uhr → 47,48 V um 05:45).
+     Die Korrektur beginnt jedes Mal bei ~47,5 V (≈ 2,97 V/Zelle):
+     15.10. 47,5 V, 20.11. 01:06 47,52 V (12 °C), 26.11. 05:45 47,48 V
+     (4 °C). Die Spannung bleibt dabei unverändert, nur die Anzeige wird
+     mit 1 %/Min. nachgezogen. Der Zähler war also zu hoch (Drift seit der
+     letzten Kalibrierung 05.11.).
+  2. Eigenschutz-Ladung: 5–6 s nach Erreichen von 13 % startet das Gerät
+     die Netzladung (26.11. 05:48:09 → 05:48:14, 20.11. 01:09:30 →
+     01:09:36) und stoppt bei 20 %. 13 = Min-SOC − 5 und 20 = Min-SOC + 2
+     passen, sind aber nur mit Min-SOC 18 beobachtet (Bezug zum Min-SOC
+     nicht bewiesen).
+  Gielz war es nicht: `set_charge_power` 0, Logbuch nur „Switch storage
+  mode to RAM“ 05:48:15 (Reaktion, 1 s nach Ladebeginn); sein
+  Schutzzweig ist per G3 auf 11–15 Uhr begrenzt.
 
 ---
 
