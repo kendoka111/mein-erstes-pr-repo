@@ -963,6 +963,16 @@ setzen (G4 entspricht dann diesem Löschen).
 - Beobachten: Tritt das öfter auf, Min-SOC auf 20 % anheben oder eine
   Vollladung auf 100 % zur Kalibrierung prüfen (letzte Kalibrierung
   25.09.).
+- **Wiederholungen:** 20.11. 01:06–01:18 (SOC 17 → 13 % in 4 Min. im
+  Standby, Netzladung ~1.240 W bis 20 %, Akku 12 °C) und 26.11.
+  05:45–06:43 (17 → 13 % in 4 Min. im Standby, Netzladung nur ~245 W bei
+  Akku 3–4 °C, kältebedingt gedrosselt; Ende bei 20 %, ~0,2 kWh).
+  Jedes Mal endet die Korrektur bei 13 % und die Eigenladung bei 20 %.
+  `set_charge_power` blieb 0, Modus Smart Charge Only (Ladevorrang), die
+  Lade-Hänger-Autolösung griff zu Recht nicht. Balkonheizung war aus;
+  über Nacht nur 1 % SOC-Verlust, also keine nennenswerte Akkuheizung.
+  Keine Änderung: Kosten ~5–6 ct je Vorkommen, eine Vollladung zur
+  Kalibrierung ist im Winter kaum erreichbar.
 
 ---
 
