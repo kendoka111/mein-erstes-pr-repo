@@ -23,7 +23,8 @@
 # Login-Vorfall vom 06.09.), nicht für einen Fehler in der Automation.
 #
 # 16.09.: Fehlalarm im Bypass-Wächter entdeckt (Normen, 35-36% SOC). Ursache:
-# automation.zendure_ladevorrang_hysterese_40_18 (separate, bereits vorher
+# automation.zendure_ladevorrang_hysterese_40_18 (Untergrenze seit 26.11.:
+# 25 %; separate, bereits vorher
 # bestehende Automatisierung) sperrt die Entladung bewusst über
 # operation_mode "Smart Charge Only", sobald der SOC auf 18% fällt, und gibt
 # erst ab 40% wieder frei (Totband 19-39%). In diesem Modus ist "nicht
@@ -48,11 +49,13 @@
     06.09.): meldet weiterhin, wenn der Modus manuell auf Standby/Manual
     steht. SOC-Schwelle 30 % ist hart codiert statt an
     minimum_allowed_state_of_charge gekoppelt, weil ein fester,
-    grosszuegiger Sicherheitsabstand zur echten Mindest-SOC (18 %) hier
+    grosszuegiger Sicherheitsabstand zur echten Mindest-SOC (25 % seit
+    26.11.2026, vorher 18 %) hier
     robuster ist als eine Rechnung mit Puffer.
     Ausnahme seit 16.09.: der eine Modus "Smart Charge Only" ist ausgenommen,
     siehe Kommentar oben im Dateikopf - dort sperrt die separate Hysterese-
-    Automatisierung (zendure_ladevorrang_hysterese_40_18) die Entladung
+    Automatisierung (zendure_ladevorrang_hysterese_40_18, Untergrenze seit
+    26.11.: 25 %) die Entladung
     bewusst und strukturell korrekt, unabhängig vom SOC-Wert.
   triggers:
     - trigger: numeric_state

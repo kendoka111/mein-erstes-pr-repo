@@ -990,6 +990,32 @@ setzen (G4 entspricht dann diesem Löschen).
   Gielz war es nicht: `set_charge_power` 0, Logbuch nur „Switch storage
   mode to RAM“ 05:48:15 (Reaktion, 1 s nach Ladebeginn); sein
   Schutzzweig ist per G3 auf 11–15 Uhr begrenzt.
+- **Mindest-SOC 18 → 25 % (26.11.2026, Normens Wunsch, Freigabe Dr. Schmidt
+  mit Auflagen).** Ziel: Akku bleibt nachts über ~47,5 V, Zellschonung bei
+  Frost, kein Eigenschutz-Laden. Im Winter wird der Akku nie voll (Tages-Max
+  12.–26.11. 20–77 %), der Tagesdurchsatz bleibt gleich, nur der Sockel
+  steigt einmalig um ~170 Wh.
+  - Schritt 1, 07:53: Ladevorrang 40/25 (`below` 19 → 26), Hash
+    `de58a573927a3f65` → `18ebf52eaf235ee8`, entity_id unverändert
+    (`…_40_18`). Abnahme 08:00-Trace 9b16fee2…: keine Aktion.
+  - Schritt 2, 12:42 bei SOC 27 % (per Template geprüft): Wächter-description
+    „Akku entlädt nicht“ nachgezogen (Hash `bba7d0f4a36d191e` →
+    `4d2bf9098444668a`, Schwelle 30 % bleibt), dann
+    `input_number.zendure_setting_minimum_allowed_state_of_charge` 25.
+    Abnahme: Helfer 25.0, `sensor.zendure_minimum_state_of_charge` 25
+    (12:42:19), Logbuch „Minimum allowed state of charge adjusted to 25%“
+    12:42:18, kein „Battery SOC protection active“, `set_charge_power` 0,
+    Standby, kein `properties/write`-4xx im system_log.
+  - Automatisch gekoppelt: Gielz (alle Zweige), Lade-Hänger-Autolösung
+    (SOC > Min + 5 = 30).
+  - **Prüfregel (Auflage 4):** Bei jeder künftigen Eigenschutz-Ladung
+    eintragen: angezeigter SOC bei Start und Stopp, Spannung, Temperatur,
+    letzte Kalibrierung. Startet die Firmware bei Min 25 schon bei ~20 %
+    (Min − 5), wirkt „über 47,5 V bleiben“ nicht als Mittel → neu bewerten.
+  - **Rückweg (Frühjahr, Auflage 5):** Helfer 25 → 18; Ladevorrang per git
+    revert der Commits eb1a710/6755589 und live zurückspielen, Hash-Abgleich
+    auf `de58a573927a3f65`; Wächter-description zurück (Hash
+    `bba7d0f4a36d191e`).
 
 ---
 
